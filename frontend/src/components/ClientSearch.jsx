@@ -8,9 +8,8 @@ export default function ClientSearch() {
   const [error, setError] = useState("");
   const [openIndex, setOpenIndex] = useState(null);
 
-  const API_URL = "https://d5degr4sfnv9p7i065ga.kf69zffa.apigw.yandexcloud.net";
-  const TOKEN =
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMDNkYzljZTItM2U2Ni00MzAyLWE4YmMtOGY2YmY4YjM5MjlhIiwidHlwZSI6ImFjY2VzcyIsImV4cCI6MTc5MjEzNTgxNiwiY29tcGFueSI6IkthdGFsb2ZmIn0.gxSX9ZBV0yoc-cgV8zEmRywUdtpRVJLX07hq_R-P_XQ";
+const API_URL = import.meta.env.VITE_API_URL;
+const TOKEN = import.meta.env.VITE_API_TOKEN;
 
   const searchInstallments = async () => {
     setLoading(true);
