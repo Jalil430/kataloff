@@ -12,6 +12,8 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./backend/database.sql:/docker-entrypoint-initdb.d/database.sql
+    networks:
+      - kataloff-net
     ports:
       - "5432:5432"
     healthcheck:
@@ -28,6 +30,8 @@ services:
         condition: service_healthy
     env_file:
       - ./backend/.env
+    networks:
+      - kataloff-net
     ports:
       - "8080:8080"
     restart: always
@@ -37,12 +41,17 @@ services:
     container_name: murabaha_frontend
     depends_on:
       - backend
+    networks:
+      - kataloff-net
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - /etc/letsencrypt:/etc/letsencrypt:ro  # ✅ монтируем реальные сертификаты
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     restart: always
+
+networks:
+  kataloff-net:
 
 volumes:
   pgdata:
