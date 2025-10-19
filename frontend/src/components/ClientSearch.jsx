@@ -8,8 +8,8 @@ export default function ClientSearch() {
   const [error, setError] = useState("");
   const [openIndex, setOpenIndex] = useState(null);
 
-const API_URL = import.meta.env.VITE_API_URL;
-const TOKEN = import.meta.env.VITE_API_TOKEN;
+  const API_URL = import.meta.env.VITE_API_URL;
+  const TOKEN = import.meta.env.VITE_API_TOKEN;
 
   const searchInstallments = async () => {
     setLoading(true);
@@ -65,10 +65,18 @@ const TOKEN = import.meta.env.VITE_API_TOKEN;
   };
 
   return (
-    <div className="flex flex-col items-center justify-center py-12 px-6 min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 text-gray-900">
+    <div className="relative flex flex-col items-center justify-center py-12 px-6 min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 text-gray-900">
+      {/* === КНОПКА НАЗАД === */}
+      <button
+        onClick={() => (window.location.href = "/")}
+        className="absolute top-8 left-8 px-5 py-2 rounded-xl bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold shadow-md hover:shadow-lg hover:from-green-700 hover:to-green-800 transition-all"
+      >
+        ← Назад
+      </button>
+
       <div className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-2xl w-full max-w-6xl border border-gray-200">
         <h2 className="text-3xl font-extrabold text-center mb-8 text-green-700">
-          🔍 Проверка рассрочек клиента
+          🔍 Проверь свои рассрочки
         </h2>
 
         {/* --- Поля поиска --- */}
@@ -108,7 +116,6 @@ const TOKEN = import.meta.env.VITE_API_TOKEN;
         {/* --- Результаты --- */}
         {data && (
           <div className="bg-white/80 backdrop-blur-lg text-gray-900 rounded-2xl p-6 shadow-inner mt-6 border border-gray-200">
-            {/* Инфо о клиенте */}
             <h3 className="text-2xl font-bold text-green-700 mb-4">
               👤 Информация о клиенте
             </h3>
@@ -121,7 +128,6 @@ const TOKEN = import.meta.env.VITE_API_TOKEN;
               <p><b>Просрочек:</b> {data.summary.overdue_count}</p>
             </div>
 
-            {/* --- Список рассрочек --- */}
             <h4 className="text-xl font-bold text-green-700 mb-4">
               💰 Список рассрочек
             </h4>
@@ -132,7 +138,6 @@ const TOKEN = import.meta.env.VITE_API_TOKEN;
                   key={i}
                   className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden transition-all hover:shadow-lg"
                 >
-                  {/* Заголовок рассрочки */}
                   <div
                     onClick={() => setOpenIndex(openIndex === i ? null : i)}
                     className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-gray-50"
@@ -147,12 +152,8 @@ const TOKEN = import.meta.env.VITE_API_TOKEN;
                     </div>
 
                     <div className="flex items-center gap-6 text-sm">
-                      <div>
-                        <b>{inst.installment_price}</b> ₽
-                      </div>
-                      <div>
-                        Остаток: <b>{inst.remaining_amount}</b> ₽
-                      </div>
+                      <div><b>{inst.installment_price}</b> ₽</div>
+                      <div>Остаток: <b>{inst.remaining_amount}</b> ₽</div>
                       <span
                         className={`px-3 py-1 rounded-xl text-xs font-semibold ${getStatusStyle(
                           inst.payment_status
@@ -166,7 +167,6 @@ const TOKEN = import.meta.env.VITE_API_TOKEN;
                     </div>
                   </div>
 
-                  {/* Выпадающая таблица */}
                   {openIndex === i && inst.payments && (
                     <div className="animate-fadeIn px-6 pb-4 bg-gray-50/50">
                       <table className="w-full mt-2 border-collapse text-sm">
@@ -190,7 +190,7 @@ const TOKEN = import.meta.env.VITE_API_TOKEN;
                               ? "К оплате сегодня"
                               : "Предстоящий";
                             return (
-                              <tr key={j} className="border-b hover:bg-gray-100">
+                              <tr key={j} className="border-b hover:bg-gray-100 transition">
                                 <td className="p-2">{p.payment_number}</td>
                                 <td className="p-2">{formatDate(p.due_date)}</td>
                                 <td className="p-2">{p.expected_amount} ₽</td>

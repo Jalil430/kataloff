@@ -5,7 +5,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-sky-600 via-blue-600 to-indigo-700 text-white p-6">
       <h1 className="text-4xl font-extrabold mb-12 text-center drop-shadow-xl">
-        💼 Добро пожаловать в калькулятор рассрочки
+        Добро пожаловать в калькулятор рассрочки
       </h1>
 
       <div className="flex flex-col sm:flex-row gap-8">
@@ -27,7 +27,7 @@ export default function HomePage() {
       </div>
 
       <footer className="mt-16 text-white/70 text-sm">
-        © {new Date().getFullYear()} Katloff FinTech. Все права защищены.
+        © {new Date().getFullYear()} Kataloff FinTech. Все права защищены.
       </footer>
     </div>
   );

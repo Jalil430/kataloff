@@ -64,32 +64,32 @@ export default function Calculator() {
     if (!clientName || !productName) return alert("Введите имя и товар");
 
     const msg = [
-      "🛍️ *Новая заявка на рассрочку*",
+      " *Новая заявка на рассрочку*",
       "",
-      `👤 *Имя клиента:* ${clientName}`,
-      `📦 *Товар:* ${productName}`,
-      `💰 *Стоимость:* ${fmtRub(price)}`,
-      `💳 *Первоначальный взнос:* ${hasDown ? fmtRub(downPayment) : "Нет"}`,
-      `📆 *Срок:* ${term} мес.`,
-      `🤝 *Поручитель:* ${hasGuarantor ? "Есть" : "Нет"}`,
+      ` *Имя клиента:* ${clientName}`,
+      ` *Товар:* ${productName}`,
+      ` *Стоимость:* ${fmtRub(price)}`,
+      ` *Первоначальный взнос:* ${hasDown ? fmtRub(downPayment) : "Нет"}`,
+      ` *Срок:* ${term} мес.`,
+      ` *Поручитель:* ${hasGuarantor ? "Есть" : "Нет"}`,
       "",
-      `📈 *Наценка за весь срок:* ${data.effectiveRate}%`,
-      `💵 *Ежемесячный платёж:* ${fmtRub(data.monthlyPayment)}`,
-      `➕ *Наценка в месяц:* ${fmtRub(data.totalMarkup / term)}`,
-      `💼 *Итоговая сумма:* ${fmtRub(data.total)}`,
+      ` *Наценка за весь срок:* ${data.effectiveRate}%`,
+      ` *Ежемесячный платёж:* ${fmtRub(data.monthlyPayment)}`,
+      `*Наценка в месяц:* ${fmtRub(data.totalMarkup / term)}`,
+      `*Итоговая сумма:* ${fmtRub(data.total)}`,
       "",
-      "📨 _Отправлено автоматически через калькулятор рассрочки_",
+      " _Отправлено автоматически через калькулятор рассрочки_",
     ].join("\n");
 
     window.open(`https://wa.me/${wa}?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 text-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 text-gray-900 relative pb-24 sm:pb-10">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
         {/* Заголовок */}
-        <h1 className="text-3xl sm:text-4xl font-bold text-center text-green-700 mb-8 sm:mb-10">
-          💼 Калькулятор рассрочки
+        <h1 className="text-3xl sm:text-4xl font-bold text-center text-green-700 mb-6 sm:mb-10">
+          Калькулятор рассрочки
         </h1>
 
         {/* Информационный блок */}
@@ -165,7 +165,7 @@ export default function Calculator() {
               onClick={sendWA}
               className="w-full sm:w-auto px-6 py-3 rounded-2xl font-semibold text-white text-lg bg-green-600 hover:bg-green-700 active:bg-green-800 shadow-lg transition-transform transform hover:scale-[1.02]"
             >
-              📤 Отправить через WhatsApp
+              Оставить заявку в Whatsapp
             </button>
           </div>
         </div>
@@ -185,8 +185,26 @@ export default function Calculator() {
             <StatCard title="Итоговая сумма" value={fmtRub(data.total)} />
           </section>
         )}
-
         <audio ref={tickSound} src="/tick.mp3" preload="auto" />
+      </div>
+
+      {/* 📱 Нижняя панель (только на мобильных) */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-gray-200 flex justify-around py-3 px-4 sm:hidden shadow-lg">
+        <button
+          onClick={() => (window.location.href = "/")}
+          className="flex flex-col items-center text-green-700 font-semibold text-sm active:scale-95 transition"
+        >
+          <span className="text-xl">←</span>
+          Назад
+        </button>
+
+        <button
+          onClick={() => (window.location.href = "/check")}
+          className="flex flex-col items-center text-green-700 font-semibold text-sm active:scale-95 transition"
+        >
+          <span className="text-xl">📄</span>
+          Мои рассрочки
+        </button>
       </div>
     </div>
   );
