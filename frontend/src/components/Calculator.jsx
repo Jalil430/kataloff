@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { sendCalc, getWhatsAppNumber } from "../lib/api.js";
-import StatCard from "./StatCard.jsx";
+import ModalForm from "./ModalForm.jsx";
 
-/* ====== палитра ====== */
+/** ===== палитра ===== */
+const SBER_BLUE = "#0B5CD5";
+const SBER_BLUE_HOVER = "#0A4FB6";
 const BANK_GREEN = "#2E7D32";
-const BANK_GREEN_DARK = "#256628";
 
-/* ====== утилиты ====== */
+/** ===== утилиты ===== */
 const clamp = (n, min, max) => Math.min(Math.max(n, min), max);
 const toNumber = (v) => {
   const n = Number(String(v).replace(/\s/g, ""));
@@ -17,79 +18,85 @@ const fmtRub = (n) =>
     Number.isFinite(n) ? n : 0
   ) + " ₽";
 
-/* ======================= КАЛЬКУЛЯТОР ======================= */
+/** ======================= КАЛЬКУЛЯТОР ======================= */
 export default function Calculator() {
+  /* переключатели */
   const [hasGuarantor, setHasGuarantor] = useState(false);
   const [hasDown, setHasDown] = useState(false);
 
-  // динамический максимум
+  /* динамический потолок цены */
   const maxPrice = useMemo(() => {
     if (hasGuarantor && hasDown) return 150_000;
     if (hasGuarantor) return 100_000;
     return 70_000;
   }, [hasGuarantor, hasDown]);
 
+  /* стоимость */
   const [priceInput, setPriceInput] = useState("50 000");
   const [price, setPrice] = useState(50_000);
 
+  /* срок */
   const [term, setTerm] = useState(3);
   const maxTerm = hasGuarantor ? 10 : 8;
 
+  /* первый взнос */
   const [downInput, setDownInput] = useState("0");
   const [downPayment, setDownPayment] = useState(0);
   const [downPercent, setDownPercent] = useState(0);
 
-  const [clientName, setClientName] = useState("");
-  const [productName, setProductName] = useState("");
-  const [wa, setWa] = useState("");
+  /* расчёт/WA */
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
+  const [wa, setWa] = useState("");
   const lastReqId = useRef(0);
 
-  /* ====== Загрузка номера WhatsApp ====== */
+  /* модалка «Оформить» */
+  const [modalOpen, setModalOpen] = useState(false);
+  const [clientName, setClientName] = useState("");
+  const [productName, setProductName] = useState("");
+
+  /** ===== загрузка WA ===== */
   useEffect(() => {
     getWhatsAppNumber().then(setWa).catch(() => {});
   }, []);
 
-  /* ====== Пересчёт процентов ====== */
+  /** ===== проценты взноса (живые) ===== */
   useEffect(() => {
     if (!hasDown || price <= 0) setDownPercent(0);
     else setDownPercent(clamp(Math.round((downPayment / price) * 100), 0, 100));
   }, [hasDown, price, downPayment]);
 
-  /* ====== Коррекция цены и взноса при изменении статусов ====== */
+  /** ===== авто-коррекция ограничений ===== */
   useEffect(() => {
     if (price > maxPrice) {
       setPrice(maxPrice);
-      setPriceInput(fmtRub(maxPrice).replace(" ₽", ""));
+      setPriceInput(new Intl.NumberFormat("ru-RU").format(maxPrice));
     }
     if (downPayment > price) {
       setDownPayment(price);
-      setDownInput(price.toString());
+      setDownInput(String(price));
     }
     if (term > maxTerm) setTerm(maxTerm);
-  }, [maxPrice, price, term, downPayment, maxTerm]);
+  }, [maxPrice, maxTerm, price, downPayment, term]);
 
-  /* ====== Обработчики ====== */
+  /** ===== обработчики ===== */
   const onPriceInput = (val) => {
     setPriceInput(val);
     const n = clamp(toNumber(val), 0, maxPrice);
     setPrice(n);
   };
-
   const onDownInput = (val) => {
     const n = clamp(toNumber(val), 0, price);
     setDownInput(n.toString());
     setDownPayment(n);
   };
-
   const onDownRange = (n) => {
     const num = clamp(Number(n), 0, price);
     setDownPayment(num);
     setDownInput(num.toString());
   };
 
-  /* ====== Расчёт ====== */
+  /** ===== запрос расчёта (анти-гонки) ===== */
   const doCalc = useCallback(async () => {
     const reqId = ++lastReqId.current;
     setError("");
@@ -112,14 +119,20 @@ export default function Calculator() {
     }
   }, [productName, price, term, hasGuarantor, hasDown, downPercent]);
 
-  useEffect(() => {
-    doCalc();
-  }, [doCalc]);
+  useEffect(() => { doCalc(); }, [doCalc]);
 
-  /* ====== Отправка в WA ====== */
+  /** ===== вычисления для карточки ===== */
+  const monthlyOverpay = useMemo(() => {
+    if (!data) return 0;
+    const principal = price - (hasDown ? downPayment : 0);
+    const diff = Number(data.total) - principal;
+    return diff / (term || 1);
+  }, [data, price, downPayment, hasDown, term]);
+
+  /** ===== отправка WA ===== */
   const sendWA = () => {
     if (!data) return alert("Сначала рассчитайте рассрочку");
-    if (!clientName || !productName) return alert("Введите имя и товар");
+    if (!clientName || !productName) return alert("Введите данные в форме заявки");
     const msg = [
       "🛍️ *Новая заявка на рассрочку*",
       `👤 *Имя клиента:* ${clientName}`,
@@ -129,252 +142,264 @@ export default function Calculator() {
       `📆 *Срок:* ${term} мес.`,
       `🤝 *Поручитель:* ${hasGuarantor ? "Есть" : "Нет"}`,
       "",
-      `📈 *Наценка за весь срок:* ${data.effectiveRate}%`,
+      `📈 *Наценка за срок:* ${data.effectiveRate}%`,
       `💵 *Ежемесячный платёж:* ${fmtRub(data.monthlyPayment)}`,
       `💼 *Итоговая сумма:* ${fmtRub(data.total)}`,
     ].join("\n");
     window.open(`https://wa.me/${wa}?text=${encodeURIComponent(msg)}`, "_blank");
+    setModalOpen(false);
   };
 
-  /* ====== Переплата ====== */
-  const monthlyOverpay = useMemo(() => {
-    if (!data) return 0;
-    const principal = price - (hasDown ? downPayment : 0);
-    const diff = Number(data.total) - principal;
-    return diff / (term || 1);
-  }, [data, price, downPayment, hasDown, term]);
-
-  /* ====== UI ====== */
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 pb-28 sm:pb-10 relative">
-      <div className="max-w-xl mx-auto px-4 py-6 sm:py-10">
-        <h1 className="text-3xl font-bold text-center mb-4" style={{ color: BANK_GREEN }}>
-          Калькулятор рассрочки
-        </h1>
+    <div className="min-h-screen bg-[#f6f7fb]">
+      {/* локальные стили под «сберовские» ползунки и «пилюли» */}
+      <style>{`
+        .sber-range {
+          -webkit-appearance: none;
+          width: 100%;
+          height: 8px;
+          border-radius: 9999px;
+          background: #e5e7eb; /* трек */
+          outline: none;
+          position: relative;
+        }
+        .sber-range::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 18px; height: 18px;
+          border-radius: 9999px;
+          background: ${BANK_GREEN};
+          border: 3px solid white;
+          box-shadow: 0 0 0 2px ${BANK_GREEN};
+          cursor: pointer;
+          margin-top: -5px;
+          position: relative;
+        }
+        .sber-range::-moz-range-thumb {
+          width: 18px; height: 18px;
+          border-radius: 9999px;
+          background: ${BANK_GREEN};
+          border: 3px solid white;
+          box-shadow: 0 0 0 2px ${BANK_GREEN};
+          cursor: pointer;
+        }
+        /* риски на шкале (через градиент) */
+        .sber-range.marks-4 { background-image:
+          linear-gradient(#e5e7eb,#e5e7eb),
+          repeating-linear-gradient(to right, transparent, transparent calc(25% - 1px), #d1d5db 0, #d1d5db calc(25% + 1px));
+          background-size: 100% 8px, 100% 2px;
+          background-position: 0 0, 0 6px;
+          background-repeat: no-repeat;
+        }
+        .pill {
+          background: #f4f6f8;
+          border: 1px solid #d6dbe0;
+          border-radius: 14px;
+          padding: 10px 14px;
+          min-width: 130px;
+          text-align: center;
+          font-weight: 600;
+          color: #223042;
+        }
+      `}</style>
 
-        {/* Поручитель — теперь вверху */}
-        <div className="mb-6">
-          <RowSwitch
-            label="Есть поручитель?"
-            checked={hasGuarantor}
-            onChange={setHasGuarantor}
-          />
+      <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-10">
+        {/* заголовок + лимиты */}
+        <div className="mb-6 md:mb-8">
+          <h1 className="text-2xl md:text-3xl font-semibold" style={{ color: "#223042" }}>
+            Калькулятор рассрочки
+          </h1>
+          <p className="text-sm text-gray-600 mt-2">
+            Без поручителя — до <b>70 000 ₽</b>. С поручителем — до <b>100 000 ₽</b>.
+            С поручителем и первым взносом — до <b>150 000 ₽</b>.
+          </p>
         </div>
 
-        {/* Описание лимитов */}
-        <p className="text-sm text-center text-gray-600 mb-8">
-          💡 Без поручителя — до <b>70 000 ₽</b>. С поручителем — до <b>100 000 ₽</b>.{" "}
-          С поручителем и первым взносом — до <b>150 000 ₽</b>.
-        </p>
-
-        <div className="space-y-5">
-          {/* стоимость */}
-          <FieldCard>
-            <label className="block text-sm text-gray-700 mb-2 font-medium">
-              Стоимость товара
-            </label>
-            <div className="flex items-center gap-2 mb-3">
-              <input
-                inputMode="numeric"
-                type="text"
-                value={priceInput}
-                onChange={(e) => onPriceInput(e.target.value)}
-                className="w-full px-4 py-2 rounded-xl border border-gray-300 font-semibold focus:ring-2"
-                style={{ outline: "none", caretColor: BANK_GREEN }}
-              />
-              <span className="text-gray-700 font-semibold">₽</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={maxPrice}
-              step={1000}
-              value={clamp(price, 0, maxPrice)}
-              onChange={(e) => {
-                const n = Number(e.target.value);
-                setPrice(n);
-                setPriceInput(n.toString());
-              }}
-              className="w-full"
-              style={{ accentColor: BANK_GREEN }}
-            />
-            <ScaleFooter left="0 ₽" right={fmtRub(maxPrice)} />
-          </FieldCard>
-
-          {/* первый взнос */}
-          <RowSwitch
-            label="Есть первый взнос?"
-            checked={hasDown}
-            onChange={(v) => {
-              setHasDown(v);
-              if (v && (downInput.trim() === "" || isNaN(toNumber(downInput)))) {
-                setDownInput("0");
-                setDownPayment(0);
-              }
-            }}
-          />
-
-          {hasDown && (
-            <FieldCard>
-              <label className="block text-sm text-gray-700 mb-2 font-medium">
-                Первоначальный взнос (до {fmtRub(price)})
-              </label>
-              <div className="flex gap-3 items-center mb-3">
-                <input
-                  inputMode="numeric"
-                  type="text"
-                  value={downInput}
-                  onChange={(e) => onDownInput(e.target.value)}
-                  className="w-full px-4 py-2 rounded-xl border border-gray-300 font-semibold focus:ring-2"
-                  style={{ outline: "none", caretColor: BANK_GREEN }}
-                />
-                <span className="text-gray-700 font-semibold">₽</span>
-                <span
-                  className="px-3 py-1 rounded-lg text-sm font-semibold min-w-[48px] text-center"
-                  style={{ background: "#E8F5E9", color: BANK_GREEN }}
-                >
-                  {downPercent}%
-                </span>
+        {/* две колонки: слева контролы, справа карточка */}
+        <div className="grid md:grid-cols-[1fr_420px] gap-8">
+          {/* левая часть (как у Сбера) */}
+          <div className="space-y-10">
+            {/* Стоимость */}
+            <section>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg md:text-xl font-semibold text-[#223042]">Стоимость имущества</h3>
+                <div className="pill">{fmtRub(price)}</div>
               </div>
+
               <input
+                className="sber-range marks-4"
+                type="range"
+                min={0}
+                max={maxPrice}
+                step={1000}
+                value={clamp(price, 0, maxPrice)}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  setPrice(n);
+                  setPriceInput(new Intl.NumberFormat("ru-RU").format(n));
+                }}
+              />
+
+              {/* подписи шкалы (как у сбер-скрина, но под наши лимиты) */}
+              <div className="flex justify-between text-gray-500 mt-2 text-sm">
+                <span>0 ₽</span>
+                <span>{fmtRub(Math.round(maxPrice * 0.25))}</span>
+                <span>{fmtRub(Math.round(maxPrice * 0.5))}</span>
+                <span>{fmtRub(Math.round(maxPrice * 0.75))}</span>
+                <span>{fmtRub(maxPrice)}</span>
+              </div>
+            </section>
+
+            {/* Первый взнос */}
+            <section>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg md:text-xl font-semibold text-[#223042]">Первоначальный взнос</h3>
+
+                <div className="flex items-center gap-3">
+                  {/* сумма */}
+                  <div className="pill">{hasDown ? fmtRub(downPayment) : "0 ₽"}</div>
+                  {/* проценты */}
+                  <div className="pill" style={{ minWidth: 90 }}>{hasDown ? `${downPercent}%` : "0%"}</div>
+                </div>
+              </div>
+
+              {/* переключатель «Есть первый взнос?» */}
+              <div className="mb-4">
+                <label className="inline-flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={hasDown}
+                    onChange={(e) => {
+                      const v = e.target.checked;
+                      setHasDown(v);
+                      if (v && (downInput.trim() === "" || Number.isNaN(toNumber(downInput)))) {
+                        setDownInput("0");
+                        setDownPayment(0);
+                      }
+                    }}
+                    className="w-5 h-5"
+                    style={{ accentColor: BANK_GREEN }}
+                  />
+                  <span className="text-[#223042] font-medium">Есть первый взнос</span>
+                </label>
+              </div>
+
+              {/* слайдер взноса (только если включен) */}
+              <input
+                className="sber-range marks-4"
                 type="range"
                 min={0}
                 max={price}
                 step={500}
-                value={clamp(downPayment, 0, price)}
+                value={hasDown ? clamp(downPayment, 0, price) : 0}
                 onChange={(e) => onDownRange(e.target.value)}
-                className="w-full"
-                style={{ accentColor: BANK_GREEN }}
+                disabled={!hasDown}
               />
-              <ScaleFooter left="0 ₽" right={fmtRub(price)} />
-            </FieldCard>
-          )}
+              <div className="flex justify-between text-gray-500 mt-2 text-sm">
+                <span>0 %</span>
+                <span>25 %</span>
+                <span>50 %</span>
+                <span>75 %</span>
+                <span>{price > 0 ? `${clamp(Math.round((price / price) * 49), 0, 49)} %` : "49 %"}</span>
+              </div>
+            </section>
 
-          {/* срок */}
-          <FieldCard>
-            <label className="block text-sm text-gray-700 mb-2 font-medium">
-              Срок рассрочки
-            </label>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-gray-700 text-lg font-semibold">{term} мес.</span>
-            </div>
-            <input
-              type="range"
-              min={3}
-              max={maxTerm}
-              step={1}
-              value={term}
-              onChange={(e) => setTerm(Number(e.target.value))}
-              className="w-full"
-              style={{ accentColor: BANK_GREEN }}
-            />
-            <ScaleFooter left="3 мес." right={`${maxTerm} мес.`} />
-          </FieldCard>
+            {/* Срок договора */}
+            <section>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg md:text-xl font-semibold text-[#223042]">Срок договора</h3>
+                <div className="pill" style={{ minWidth: 150 }}>{term} месяцев</div>
+              </div>
 
-          {/* данные клиента */}
-          <TextField
-            label="Имя клиента"
-            value={clientName}
-            onChange={setClientName}
-            placeholder="Введите ФИО"
-          />
-          <TextField
-            label="Название товара"
-            value={productName}
-            onChange={setProductName}
-            placeholder="Например: iPhone 15"
-          />
-        </div>
+              <input
+                className="sber-range marks-4"
+                type="range"
+                min={3}
+                max={maxTerm}
+                step={1}
+                value={term}
+                onChange={(e) => setTerm(Number(e.target.value))}
+              />
+              <div className="flex justify-between text-gray-500 mt-2 text-sm">
+                <span>3 мес.</span>
+                <span>{Math.round(3 + (maxTerm - 3) * 0.25)} мес.</span>
+                <span>{Math.round(3 + (maxTerm - 3) * 0.5)} мес.</span>
+                <span>{Math.round(3 + (maxTerm - 3) * 0.75)} мес.</span>
+                <span>{maxTerm} мес.</span>
+              </div>
+            </section>
 
-        {error && <p className="text-red-500 text-center mt-4">{error}</p>}
-
-        {data && (
-          <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <StatCard title="Ежемесячный платёж" value={fmtRub(data.monthlyPayment)} />
-            <StatCard title="Наценка за срок" value={`${data.effectiveRate}%`} />
-            <StatCard title="Итоговая сумма" value={fmtRub(data.total)} />
-            <StatCard title="Переплата в месяц" value={fmtRub(monthlyOverpay)} />
+            {/* Поручитель */}
+            <section>
+              <label className="inline-flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={hasGuarantor}
+                  onChange={(e) => setHasGuarantor(e.target.checked)}
+                  className="w-5 h-5"
+                  style={{ accentColor: BANK_GREEN }}
+                />
+                <span className="text-[#223042] font-medium">Есть поручитель</span>
+              </label>
+            </section>
           </div>
-        )}
 
-        <button
-          onClick={sendWA}
-          className="w-full mt-8 py-4 rounded-2xl text-white text-lg font-semibold shadow-lg transition"
-          style={{ background: BANK_GREEN }}
-          onMouseOver={(e) => (e.currentTarget.style.background = BANK_GREEN_DARK)}
-          onMouseOut={(e) => (e.currentTarget.style.background = BANK_GREEN)}
-        >
-          📲 Отправить в WhatsApp
-        </button>
+          {/* правая карточка с расчётом */}
+          <aside className="md:sticky md:top-6 h-fit">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+              <div className="text-gray-500 text-sm mb-2">Ежемесячный платёж:</div>
+              <div className="text-4xl md:text-5xl font-bold mb-4 text-[#223042]">
+                {data ? fmtRub(data.monthlyPayment) : "—"}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-sm mb-6">
+                <InfoRow label="Итоговая сумма" value={data ? fmtRub(data.total) : "—"} />
+                <InfoRow label="Наценка за срок" value={data ? `${data.effectiveRate}%` : "—"} />
+                <InfoRow label="Переплата в месяц" value={data ? fmtRub(monthlyOverpay) : "—"} />
+                <InfoRow label="Доступный максимум" value={fmtRub(maxPrice)} />
+              </div>
+
+              <button
+                onClick={() => setModalOpen(true)}
+                className="w-full rounded-full py-3 text-white font-semibold transition shadow-sm"
+                style={{ background: SBER_BLUE }}
+                onMouseOver={(e) => (e.currentTarget.style.background = SBER_BLUE_HOVER)}
+                onMouseOut={(e) => (e.currentTarget.style.background = SBER_BLUE)}
+              >
+                Оформить заявку
+              </button>
+
+              <p className="text-[12px] text-gray-500 mt-4 leading-snug">
+                Для дополниетльных впорососв свяжитесь с нашим менеджером в WhatsApp.
+              </p>
+
+              {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+            </div>
+          </aside>
+        </div>
       </div>
 
-      {/* нижняя панель */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around py-3 shadow-lg sm:hidden">
-        <button
-          onClick={() => (window.location.href = "/")}
-          className="flex flex-col items-center font-semibold text-sm"
-          style={{ color: BANK_GREEN }}
-        >
-          <span className="text-xl">←</span>
-          Назад
-        </button>
-        <button
-          onClick={() => (window.location.href = "/check")}
-          className="flex flex-col items-center font-semibold text-sm"
-          style={{ color: BANK_GREEN }}
-        >
-          <span className="text-xl">📄</span>
-          Мои рассрочки
-        </button>
-      </div>
+      {/* модалка */}
+      {modalOpen && (
+        <ModalForm
+          onClose={() => setModalOpen(false)}
+          clientName={clientName}
+          setClientName={setClientName}
+          productName={productName}
+          setProductName={setProductName}
+          onSubmit={sendWA}
+        />
+      )}
     </div>
   );
 }
 
-/* ======================= ВСПОМОГАТЕЛЬНЫЕ КОМПОНЕНТЫ ======================= */
-function FieldCard({ children }) {
-  return <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">{children}</div>;
-}
-
-function ScaleFooter({ left, right }) {
+/** ===== вспомогательные ===== */
+function InfoRow({ label, value }) {
   return (
-    <div className="flex justify-between text-xs text-gray-500 mt-1">
-      <span>{left}</span>
-      <span>{right}</span>
+    <div className="flex flex-col">
+      <span className="text-gray-500">{label}</span>
+      <span className="font-semibold text-[#223042]">{value}</span>
     </div>
-  );
-}
-
-function RowSwitch({ label, checked, onChange }) {
-  return (
-    <div
-      className="flex items-center justify-between bg-white border border-gray-200 rounded-2xl p-4 shadow-sm"
-      style={{ borderColor: "#d1d5db" }}
-    >
-      <span className="text-gray-800 font-medium">{label}</span>
-      <input
-        type="checkbox"
-        checked={!!checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="w-6 h-6 cursor-pointer"
-        style={{ accentColor: BANK_GREEN }}
-      />
-    </div>
-  );
-}
-
-function TextField({ label, value, onChange, placeholder }) {
-  return (
-    <FieldCard>
-      <label className="block text-sm text-gray-700 mb-2">{label}</label>
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full p-3 rounded-xl border border-gray-300 focus:ring-2"
-        style={{ outline: "none", caretColor: BANK_GREEN }}
-      />
-    </FieldCard>
   );
 }
