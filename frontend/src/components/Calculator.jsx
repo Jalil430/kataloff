@@ -134,17 +134,17 @@ export default function Calculator() {
     if (!data) return alert("Сначала рассчитайте рассрочку");
     if (!clientName || !productName) return alert("Введите данные в форме заявки");
     const msg = [
-      "🛍️ *Новая заявка на рассрочку*",
-      `👤 *Имя клиента:* ${clientName}`,
-      `📦 *Товар:* ${productName}`,
-      `💰 *Стоимость:* ${fmtRub(price)}`,
-      `💳 *Первоначальный взнос:* ${hasDown ? fmtRub(downPayment) : "Нет"}`,
-      `📆 *Срок:* ${term} мес.`,
-      `🤝 *Поручитель:* ${hasGuarantor ? "Есть" : "Нет"}`,
+      " *Новая заявка на рассрочку*",
+      ` *Имя клиента:* ${clientName}`,
+      ` *Товар:* ${productName}`,
+      ` *Стоимость:* ${fmtRub(price)}`,
+      `*Первоначальный взнос:* ${hasDown ? fmtRub(downPayment) : "Нет"}`,
+      ` *Срок:* ${term} мес.`,
+      ` *Поручитель:* ${hasGuarantor ? "Есть" : "Нет"}`,
       "",
-      `📈 *Наценка за срок:* ${data.effectiveRate}%`,
-      `💵 *Ежемесячный платёж:* ${fmtRub(data.monthlyPayment)}`,
-      `💼 *Итоговая сумма:* ${fmtRub(data.total)}`,
+      ` *Наценка за срок:* ${data.effectiveRate}%`,
+      ` *Ежемесячный платёж:* ${fmtRub(data.monthlyPayment)}`,
+      ` *Итоговая сумма:* ${fmtRub(data.total)}`,
     ].join("\n");
     window.open(`https://wa.me/${wa}?text=${encodeURIComponent(msg)}`, "_blank");
     setModalOpen(false);
@@ -297,9 +297,8 @@ export default function Calculator() {
               />
               <div className="flex justify-between text-gray-500 mt-2 text-sm">
                 <span>0 %</span>
-                <span>25 %</span>
                 <span>50 %</span>
-                <span>75 %</span>
+
                 <span>{price > 0 ? `${clamp(Math.round((price / price) * 49), 0, 49)} %` : "49 %"}</span>
               </div>
             </section>
@@ -322,9 +321,9 @@ export default function Calculator() {
               />
               <div className="flex justify-between text-gray-500 mt-2 text-sm">
                 <span>3 мес.</span>
-                <span>{Math.round(3 + (maxTerm - 3) * 0.25)} мес.</span>
+               
                 <span>{Math.round(3 + (maxTerm - 3) * 0.5)} мес.</span>
-                <span>{Math.round(3 + (maxTerm - 3) * 0.75)} мес.</span>
+        
                 <span>{maxTerm} мес.</span>
               </div>
             </section>
