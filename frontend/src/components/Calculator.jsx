@@ -6,9 +6,8 @@ import ModalForm from "./ModalForm.jsx";
 const SBER_BLUE = "#1A3A5C";
 const SBER_BLUE_HOVER = "#14304A";
 const BANK_GREEN = "#4A9B7E";
-const LIGHT_BLUE = "#2196F3";
+const LIGHT_BLUE = "#219ff3ff";
 const INFO_BLUE = "#E3F2FD";
-const SLIDER_BLUE = "#2F6B8E";
 
 /** ===== утилиты ===== */
 const clamp = (n, min, max) => Math.min(Math.max(n, min), max);
