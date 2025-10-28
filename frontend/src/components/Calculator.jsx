@@ -6,7 +6,7 @@ import ModalForm from "./ModalForm.jsx";
 const LOGO_BLUE = "#1A3A5C";
 const LOGO_BLUE_HOVER = "#14304A";
 const LOGO_GREEN = "#4A9B7E";
-const INFO_BLUE = "#219ff3ff";
+const INFO_BLUE = "#42A5F5";
 const INFO_BLUE_BG = "#E3F2FD";
 
 /** ===== утилиты ===== */
@@ -309,8 +309,8 @@ export default function Calculator() {
           outline: none;
         }
         .pill-input:focus {
-          border-color: ${LOGO_BLUE};
-          box-shadow: 0 0 0 2px ${LOGO_BLUE}33;
+          border-color: ${LOGO_GREEN};
+          box-shadow: 0 0 0 2px ${LOGO_GREEN}33;
         }
         .pill-input-percent {
           background: #f4f6f8;
@@ -329,8 +329,8 @@ export default function Calculator() {
           margin: 0;
         }
         .pill-input-percent:focus {
-          border-color: ${LOGO_BLUE};
-          box-shadow: 0 0 0 2px ${LOGO_BLUE}33;
+          border-color: ${LOGO_GREEN};
+          box-shadow: 0 0 0 2px ${LOGO_GREEN}33;
         }
         .pill-input:disabled,
         .pill-input[readonly] {
@@ -364,8 +364,8 @@ export default function Calculator() {
           margin: 0;
         }
         .pill-input-percent-small:focus {
-          border-color: ${LOGO_BLUE};
-          box-shadow: 0 0 0 2px ${LOGO_BLUE}33;
+          border-color: ${LOGO_GREEN};
+          box-shadow: 0 0 0 2px ${LOGO_GREEN}33;
         }
         .pill-input-percent-small:disabled,
         .pill-input-percent-small[readonly] {

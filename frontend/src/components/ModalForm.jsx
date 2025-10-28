@@ -1,7 +1,8 @@
 import React from "react";
 
-const SBER_BLUE = "#0B5CD5";
-const SBER_BLUE_HOVER = "#0A4FB6";
+const LOGO_BLUE = "#1A3A5C";
+const LOGO_BLUE_HOVER = "#14304A";
+const LOGO_GREEN = "#4A9B7E";
 
 export default function ModalForm({
   onClose,
@@ -41,7 +42,15 @@ export default function ModalForm({
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
                 placeholder="Введите ФИО"
-                className="w-full p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-200 outline-none bg-white"
+                className="w-full p-3 rounded-xl border border-gray-300 outline-none bg-white"
+                onFocus={(e) => {
+                  e.target.style.borderColor = LOGO_GREEN;
+                  e.target.style.boxShadow = `0 0 0 2px ${LOGO_GREEN}33`;
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#d1d5db';
+                  e.target.style.boxShadow = 'none';
+                }}
               />
             </div>
 
@@ -52,16 +61,24 @@ export default function ModalForm({
                 value={productName}
                 onChange={(e) => setProductName(e.target.value)}
                 placeholder="Например: iPhone 15"
-                className="w-full p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-200 outline-none bg-white"
+                className="w-full p-3 rounded-xl border border-gray-300 outline-none bg-white"
+                onFocus={(e) => {
+                  e.target.style.borderColor = LOGO_GREEN;
+                  e.target.style.boxShadow = `0 0 0 2px ${LOGO_GREEN}33`;
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#d1d5db';
+                  e.target.style.boxShadow = 'none';
+                }}
               />
             </div>
 
             <button
               onClick={onSubmit}
               className="w-full rounded-full py-3 text-white font-semibold transition shadow-sm"
-              style={{ background: SBER_BLUE }}
-              onMouseOver={(e) => (e.currentTarget.style.background = SBER_BLUE_HOVER)}
-              onMouseOut={(e) => (e.currentTarget.style.background = SBER_BLUE)}
+              style={{ background: `linear-gradient(135deg, ${LOGO_BLUE} 0%, ${LOGO_GREEN} 100%)` }}
+              onMouseOver={(e) => (e.currentTarget.style.background = `linear-gradient(135deg, ${LOGO_BLUE_HOVER} 0%, #5BA394 100%)`)}
+              onMouseOut={(e) => (e.currentTarget.style.background = `linear-gradient(135deg, ${LOGO_BLUE} 0%, ${LOGO_GREEN} 100%)`)}
             >
               Отправить в WhatsApp
             </button>
