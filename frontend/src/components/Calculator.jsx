@@ -232,14 +232,14 @@ export default function Calculator() {
       " *Новая заявка на рассрочку*",
       ` *Имя клиента:* ${clientName}`,
       ` *Товар:* ${productName}`,
-      ` *Стоимость:* ${fmtRub(price)}`,
+      ` *Стоимость товара:* ${fmtRub(price)}`,
       `*Первоначальный взнос:* ${hasDown ? fmtRub(downPayment) : "Нет"}`,
       ` *Срок:* ${term} мес.`,
       ` *Поручитель:* ${hasGuarantor ? "Есть" : "Нет"}`,
       "",
-      ` *Наценка за срок:* ${data.effectiveRate}%`,
+      ` *Торговая наценка в месяц:* ${data.effectiveRate}%`,
       ` *Ежемесячный платёж:* ${fmtRub(data.monthlyPayment)}`,
-      ` *Итоговая сумма:* ${fmtRub(data.total)}`,
+      ` *Общая сумма рассрочки:* ${fmtRub(data.total)}`,
     ].join("\n");
     window.open(`https://wa.me/${wa}?text=${encodeURIComponent(msg)}`, "_blank");
     setModalOpen(false);
@@ -472,7 +472,7 @@ export default function Calculator() {
             {/* Стоимость */}
             <section>
               <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
-                <h3 className="text-lg font-semibold text-[#223042] mb-2 md:mb-0">Стоимость имущества</h3>
+                <h3 className="text-lg font-semibold text-[#223042] mb-2 md:mb-0">Стоимость товара</h3>
                 <input
                   type="text"
                   value={priceInputValue}
@@ -525,7 +525,7 @@ export default function Calculator() {
             {/* Срок договора */}
             <section>
               <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
-                <h3 className="text-lg font-semibold text-[#223042] mb-2 md:mb-0">Срок договора</h3>
+                <h3 className="text-lg font-semibold text-[#223042] mb-2 md:mb-0">Срок рассрочки</h3>
                 <input
                   type="number"
                   value={termInputValue}
@@ -692,9 +692,9 @@ export default function Calculator() {
                 {data ? fmtRub(data.monthlyPayment) : "—"}
               </div>
 
-              <div className="grid grid-cols-2 gap-6 text-base mb-6">
-                <InfoRow label="Итоговая сумма" value={data ? fmtRub(data.total) : "—"} />
-                <InfoRow label="Переплата в месяц" value={data ? fmtRub(monthlyOverpay) : "—"} />
+              <div className="grid grid-cols-2 gap-6 text-sm mb-6">
+                <InfoRow label="Общая сумма рассрочки:" value={data ? fmtRub(data.total) : "—"} />
+                <InfoRow label="Торговая наценка в месяц:" value={data ? fmtRub(monthlyOverpay) : "—"} />
               </div>
 
               <button
@@ -737,7 +737,7 @@ function InfoRow({ label, value }) {
   return (
     <div className="flex flex-col">
       <span className="text-gray-500">{label}</span>
-      <span className="font-semibold text-[#223042]">{value}</span>
+      <span className="font-semibold text-[#223042] text-base">{value}</span>
     </div>
   );
 }
