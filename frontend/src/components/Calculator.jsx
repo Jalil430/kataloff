@@ -3,11 +3,11 @@ import { sendCalc, getWhatsAppNumber } from "../lib/api.js";
 import ModalForm from "./ModalForm.jsx";
 
 /** ===== палитра ===== */
-const SBER_BLUE = "#1A3A5C";
-const SBER_BLUE_HOVER = "#14304A";
-const BANK_GREEN = "#4A9B7E";
-const LIGHT_BLUE = "#219ff3ff";
-const INFO_BLUE = "#E3F2FD";
+const LOGO_BLUE = "#1A3A5C";
+const LOGO_BLUE_HOVER = "#14304A";
+const LOGO_GREEN = "#4A9B7E";
+const INFO_BLUE = "#219ff3ff";
+const INFO_BLUE_BG = "#E3F2FD";
 
 /** ===== утилиты ===== */
 const clamp = (n, min, max) => Math.min(Math.max(n, min), max);
@@ -110,7 +110,7 @@ export default function Calculator() {
 
   const updateSliderFill = (slider, value, min, max) => {
     const percentage = ((value - min) / (max - min)) * 100;
-    slider.style.background = `linear-gradient(to right, ${BANK_GREEN} 0%, ${BANK_GREEN} ${percentage}%, #e5e7eb ${percentage}%, #e5e7eb 100%)`;
+    slider.style.background = `linear-gradient(to right, ${LOGO_GREEN} 0%, ${LOGO_GREEN} ${percentage}%, #e5e7eb ${percentage}%, #e5e7eb 100%)`;
   };
 
   const handleDownInput = (val) => {
@@ -263,9 +263,9 @@ export default function Calculator() {
           width: 20px;
           height: 20px;
           border-radius: 50%;
-          background: ${BANK_GREEN};
+          background: ${LOGO_GREEN};
           border: 3px solid white;
-          box-shadow: 0 0 0 1px ${BANK_GREEN};
+          box-shadow: 0 0 0 1px ${LOGO_GREEN};
           cursor: pointer;
           position: relative;
         }
@@ -273,9 +273,9 @@ export default function Calculator() {
           width: 20px;
           height: 20px;
           border-radius: 50%;
-          background: ${BANK_GREEN};
+          background: ${LOGO_GREEN};
           border: 3px solid white;
-          box-shadow: 0 0 0 1px ${BANK_GREEN};
+          box-shadow: 0 0 0 1px ${LOGO_GREEN};
           cursor: pointer;
           transform: translateY(-50%);
         }
@@ -309,8 +309,8 @@ export default function Calculator() {
           outline: none;
         }
         .pill-input:focus {
-          border-color: ${SBER_BLUE};
-          box-shadow: 0 0 0 2px ${SBER_BLUE}33;
+          border-color: ${LOGO_BLUE};
+          box-shadow: 0 0 0 2px ${LOGO_BLUE}33;
         }
         .pill-input-percent {
           background: #f4f6f8;
@@ -329,8 +329,8 @@ export default function Calculator() {
           margin: 0;
         }
         .pill-input-percent:focus {
-          border-color: ${SBER_BLUE};
-          box-shadow: 0 0 0 2px ${SBER_BLUE}33;
+          border-color: ${LOGO_BLUE};
+          box-shadow: 0 0 0 2px ${LOGO_BLUE}33;
         }
         .pill-input:disabled,
         .pill-input[readonly] {
@@ -364,8 +364,8 @@ export default function Calculator() {
           margin: 0;
         }
         .pill-input-percent-small:focus {
-          border-color: ${SBER_BLUE};
-          box-shadow: 0 0 0 2px ${SBER_BLUE}33;
+          border-color: ${LOGO_BLUE};
+          box-shadow: 0 0 0 2px ${LOGO_BLUE}33;
         }
         .pill-input-percent-small:disabled,
         .pill-input-percent-small[readonly] {
@@ -383,7 +383,7 @@ export default function Calculator() {
           border-radius: 12px;
           border: 1px solid #e5e7eb;
           background: white;
-          color: ${BANK_GREEN};
+          color: ${LOGO_GREEN};
           font-weight: 500;
           cursor: pointer;
           transition: all 0.2s ease;
@@ -393,9 +393,9 @@ export default function Calculator() {
           border-color: #d1d5db;
         }
         .option-button.active {
-          background: linear-gradient(135deg, ${SBER_BLUE} 0%, ${BANK_GREEN} 100%);
+          background: linear-gradient(135deg, ${LOGO_BLUE} 0%, ${LOGO_GREEN} 100%);
           color: white;
-          border-color: ${BANK_GREEN};
+          border-color: ${LOGO_GREEN};
         }
         .section-disabled {
           opacity: 0.5;
@@ -427,12 +427,12 @@ export default function Calculator() {
 
         {/* карточка с подсказкой - только на мобильных */}
         <div className="lg:hidden mb-6">
-          <div className="rounded-2xl border p-4" style={{ backgroundColor: INFO_BLUE, borderColor: LIGHT_BLUE }}>
+          <div className="rounded-2xl border p-4" style={{ backgroundColor: INFO_BLUE_BG, borderColor: INFO_BLUE }}>
             <div className="flex items-start gap-3">
-              <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{ color: LIGHT_BLUE }}>
+              <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{ color: INFO_BLUE }}>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
-              <div className="text-sm leading-relaxed" style={{ color: LIGHT_BLUE }}>
+              <div className="text-sm leading-relaxed" style={{ color: INFO_BLUE }}>
                 <p>
                   Без поручителя — до <b>70 000 ₽</b><br />
                   С поручителем — до <b>100 000 ₽</b><br />
@@ -669,12 +669,12 @@ export default function Calculator() {
           {/* правая карточка с расчётом */}
           <aside className="lg:sticky lg:top-4 h-fit space-y-4">
             {/* карточка с подсказкой - только на десктопе */}
-            <div className="hidden lg:block rounded-2xl border p-4" style={{ backgroundColor: INFO_BLUE, borderColor: LIGHT_BLUE }}>
+            <div className="hidden lg:block rounded-2xl border p-4" style={{ backgroundColor: INFO_BLUE_BG, borderColor: INFO_BLUE }}>
               <div className="flex items-start gap-3">
-                <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{ color: LIGHT_BLUE }}>
+                <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{ color: INFO_BLUE }}>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
-                <div className="text-sm leading-relaxed" style={{ color: LIGHT_BLUE }}>
+                <div className="text-sm leading-relaxed" style={{ color: INFO_BLUE }}>
                   <p>
                     Без поручителя — до <b>70 000 ₽</b><br />
                     С поручителем — до <b>100 000 ₽</b><br />
@@ -699,9 +699,9 @@ export default function Calculator() {
               <button
                 onClick={() => setModalOpen(true)}
                 className="w-full rounded-full py-3 text-white font-semibold transition shadow-sm mb-3"
-                style={{ background: `linear-gradient(135deg, ${SBER_BLUE} 0%, ${BANK_GREEN} 100%)` }}
-                onMouseOver={(e) => (e.currentTarget.style.background = `linear-gradient(135deg, ${SBER_BLUE_HOVER} 0%, #5BA394 100%)`)}
-                onMouseOut={(e) => (e.currentTarget.style.background = `linear-gradient(135deg, ${SBER_BLUE} 0%, ${BANK_GREEN} 100%)`)}
+                style={{ background: `linear-gradient(135deg, ${LOGO_BLUE} 0%, ${LOGO_GREEN} 100%)` }}
+                onMouseOver={(e) => (e.currentTarget.style.background = `linear-gradient(135deg, ${LOGO_BLUE_HOVER} 0%, #5BA394 100%)`)}
+                onMouseOut={(e) => (e.currentTarget.style.background = `linear-gradient(135deg, ${LOGO_BLUE} 0%, ${LOGO_GREEN} 100%)`)}
               >
                 Оформить заявку
               </button>
