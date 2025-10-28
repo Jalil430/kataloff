@@ -426,6 +426,24 @@ export default function Calculator() {
           </h1>
         </div>
 
+        {/* карточка с подсказкой - только на мобильных */}
+        <div className="lg:hidden mb-6">
+          <div className="rounded-2xl border p-4" style={{ backgroundColor: INFO_BLUE, borderColor: LIGHT_BLUE }}>
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{ color: LIGHT_BLUE }}>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              <div className="text-sm leading-relaxed" style={{ color: LIGHT_BLUE }}>
+                <p>
+                  Без поручителя — до <b>70 000 ₽</b><br />
+                  С поручителем — до <b>100 000 ₽</b><br />
+                  С поручителем и первым взносом — до <b>150 000 ₽</b>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* селекторы опций */}
         <div className="flex flex-wrap gap-3 mb-8">
           <button
@@ -557,7 +575,7 @@ export default function Calculator() {
             </section>
 
             {/* Первый взнос */}
-            <section className={!hasDown ? 'section-disabled' : ''}>
+            <section className={`mb-8 ${!hasDown ? 'section-disabled' : ''}`}>
               <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
                 <h3 className="text-lg font-semibold text-[#223042] mb-2 md:mb-0">Первоначальный взнос</h3>
                 <div className="flex items-center gap-3 w-full container-fixed-desktop">
@@ -651,8 +669,8 @@ export default function Calculator() {
 
           {/* правая карточка с расчётом */}
           <aside className="lg:sticky lg:top-4 h-fit space-y-4">
-            {/* карточка с подсказкой */}
-            <div className="rounded-2xl border p-4" style={{ backgroundColor: INFO_BLUE, borderColor: LIGHT_BLUE }}>
+            {/* карточка с подсказкой - только на десктопе */}
+            <div className="hidden lg:block rounded-2xl border p-4" style={{ backgroundColor: INFO_BLUE, borderColor: LIGHT_BLUE }}>
               <div className="flex items-start gap-3">
                 <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{ color: LIGHT_BLUE }}>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
