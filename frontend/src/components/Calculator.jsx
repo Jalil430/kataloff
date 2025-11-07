@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { sendCalc, getWhatsAppNumber } from "../lib/api.js";
 import ModalForm from "./ModalForm.jsx";
+import ContactSection from "./ContactSection.jsx";
 
 /** ===== палитра ===== */
 const LOGO_BLUE = "#1A3A5C";
@@ -245,7 +246,7 @@ export default function Calculator() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f6f7fb]">
+    <div className="min-h-[calc(100vh-80px)] bg-[#f6f7fb]">
       <style>{`
         .sber-range {
           -webkit-appearance: none;
@@ -703,7 +704,7 @@ export default function Calculator() {
                 onMouseOver={(e) => (e.currentTarget.style.background = `linear-gradient(135deg, ${LOGO_BLUE_HOVER} 0%, #5BA394 100%)`)}
                 onMouseOut={(e) => (e.currentTarget.style.background = `linear-gradient(135deg, ${LOGO_BLUE} 0%, ${LOGO_GREEN} 100%)`)}
               >
-                Оформить заявку
+                Оформить рассрочку
               </button>
 
               <p className="text-xs text-gray-500 leading-snug">
@@ -727,6 +728,8 @@ export default function Calculator() {
           onSubmit={sendWA}
         />
       )}
+
+      <ContactSection />
     </div>
   );
 }
