@@ -15,9 +15,9 @@ type CalcRequest struct {
 }
 
 type CalcResponse struct {
-	EffectiveRate  float64 `json:"effectiveRate"`  // % за весь срок
+	EffectiveRate  float64 `json:"effectiveRate"`  // торговая наценка за весь срок (%)
 	MonthlyPayment float64 `json:"monthlyPayment"` // платёж в месяц
-	Total          float64 `json:"total"`          // сумма к оплате
+	Total          float64 `json:"total"`          // сумма к оплате (включая взнос)
 	TotalMarkup    float64 `json:"totalMarkup"`    // общая наценка
 	DownPayment    float64 `json:"downPayment"`    // первоначальный взнос
 }
@@ -37,10 +37,10 @@ func compute(req CalcRequest) (CalcResponse, error) {
 		return CalcResponse{}, errors.New("Превышен срок рассрочки")
 	}
 
-	// 💰 Получаем ставку из таблицы
-	baseRate := percentForTerm(req.Term, req.HasDown)
+	// 🧮 Получаем торговую наценку (а не процент по долгу!)
+	tradeMarkupPercent := percentForTerm(req.Term, req.HasDown)
 
-	// 💵 Рассчитываем первый взнос
+	// 💵 Первый взнос
 	downPayment := 0.0
 	if req.HasDown {
 		if req.DownPercent > 0 {
@@ -50,16 +50,19 @@ func compute(req CalcRequest) (CalcResponse, error) {
 		}
 	}
 
-	// 💳 Расчёты
+	// 💰 Финансируемая часть (сумма к рассрочке)
 	financed := req.Price - downPayment
-	total := financed * (1 + baseRate/100)
+
+	// 📈 Расчёт по принципу исламской рассрочки:
+	// цена = себестоимость + фиксированная торговая наценка
+	totalMarkup := financed * (tradeMarkupPercent / 100)
+	total := financed + totalMarkup
 	monthly := total / float64(req.Term)
-	totalMarkup := total - financed
 
 	return CalcResponse{
-		EffectiveRate:  baseRate,
-		MonthlyPayment: math.Round(monthly),
-		Total:          math.Round(total + downPayment),
+		EffectiveRate:  tradeMarkupPercent,           // просто процент торговой надбавки
+		MonthlyPayment: math.Round(monthly),          // равные доли, без процентов
+		Total:          math.Round(total + downPayment), // добавляем взнос для общей суммы
 		TotalMarkup:    math.Round(totalMarkup),
 		DownPayment:    math.Round(downPayment),
 	}, nil
@@ -69,23 +72,17 @@ func compute(req CalcRequest) (CalcResponse, error) {
 func limits(guarantor, down bool) (float64, int, error) {
 	switch {
 	case !guarantor:
-		// Без поручителя — максимум 70 000 ₽ и 8 мес
 		return 70000, 8, nil
-
 	case guarantor && !down:
-		// С поручителем, без взноса — до 100 000 ₽ и 10 мес
 		return 100000, 10, nil
-
 	case guarantor && down:
-		// С поручителем и взносом — до 150 000 ₽ и 10 мес
 		return 150000, 10, nil
-
 	default:
 		return 0, 0, errors.New("некорректное сочетание параметров")
 	}
 }
 
-// ---------- Таблица процентов ----------
+// ---------- Таблица торговой наценки ----------
 func percentForTerm(term int, hasDown bool) float64 {
 	if term < 3 {
 		term = 3
