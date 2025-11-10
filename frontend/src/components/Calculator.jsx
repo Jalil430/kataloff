@@ -280,25 +280,29 @@ const monthlyMarkupRub = useMemo(() => {
 }, [realMarkupRub, term]);
 
   /** ===== отправка WA ===== */
-  const sendWA = () => {
-    if (!data) return alert("Сначала рассчитайте рассрочку");
-    if (!clientName || !productName) return alert("Введите данные в форме заявки");
-    const msg = [
-      " *Новая заявка на рассрочку*",
-      ` *Имя клиента:* ${clientName}`,
-      ` *Товар:* ${productName}`,
-      ` *Стоимость товара:* ${fmtRub(price)}`,
-      `*Первоначальный взнос:* ${hasDown ? fmtRub(downPayment) : "Нет"}`,
-      ` *Срок:* ${term} мес.`,
-      ` *Поручитель:* ${hasGuarantor ? "Есть" : "Нет"}`,
-      "",
-      
-      ` *Ежемесячный платёж:* ${fmtRub(monthlyPaymentCalc)}`,
-      ` *Общая сумма рассрочки:* ${fmtRub(totalWithMarkup)}`,
-    ].join("\n");
-    window.open(`https://wa.me/${wa}?text=${encodeURIComponent(msg)}`, "_blank");
-    setModalOpen(false);
-  };
+/** ===== отправка WA ===== */
+const sendWA = () => {
+  if (!data) return alert("Сначала рассчитайте рассрочку");
+  if (!clientName || !productName) return alert("Введите данные в форме заявки");
+
+  const msg = [
+    "*Новая заявка на рассрочку*",
+    `*Имя клиента:* ${clientName}`,
+    `*Товар:* ${productName}`,
+    `*Стоимость товара:* ${fmtRub(price)}`,
+    `*Первоначальный взнос:* ${hasDown ? fmtRub(downPayment) : "Нет"}`,
+    `*Срок:* ${term} мес.`,
+    `*Поручитель:* ${hasGuarantor ? "Есть" : "Нет"}`,
+    "",
+    `*Ежемесячный платёж:* ${fmtRub(monthlyPaymentCalc)}`,
+    `*Общая сумма рассрочки:* ${fmtRub(totalWithMarkupRounded)}`
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  window.open(`https://wa.me/${wa}?text=${encodeURIComponent(msg)}`, "_blank");
+  setModalOpen(false);
+};
 
   return (
     <div className="min-h-[calc(100vh-80px)] bg-[#f6f7fb]">
