@@ -61,7 +61,7 @@ export default function Calculator() {
 
   /** ===== загрузка WA ===== */
   useEffect(() => {
-    getWhatsAppNumber().then(setWa).catch(() => { });
+    getWhatsAppNumber().then(setWa).catch(() => {});
   }, []);
 
   /** ===== проценты взноса (живые) ===== */
@@ -96,7 +96,6 @@ export default function Calculator() {
     const displayVal = cleanVal === '' ? '0' : cleanVal;
     setPriceInputValue(displayVal);
 
-    // Only update the actual value if it's valid
     const numericValue = toNumber(displayVal);
     if (numericValue >= 0) {
       setPrice(numericValue);
@@ -115,12 +114,10 @@ export default function Calculator() {
   };
 
   const handleDownInput = (val) => {
-    // Only allow numbers and spaces, show "0" if empty
     const cleanVal = val.replace(/[^0-9\s]/g, '');
     const displayVal = cleanVal === '' ? '0' : cleanVal;
     setDownInputValue(displayVal);
 
-    // Only update the actual value if it's valid
     const numericValue = toNumber(displayVal);
     if (numericValue >= 0) {
       setDownPayment(numericValue);
@@ -128,14 +125,13 @@ export default function Calculator() {
   };
 
   const handleDownSlider = (val) => {
-    const minDown = Math.round(price * 0.25);
+    const minDown = 3000; // фиксированный минимум для ползунка
     const n = clamp(Number(val), minDown, price);
     setDownPayment(n);
     setDownInputValue(new Intl.NumberFormat("ru-RU").format(n));
   };
 
   const handleDownPercentInput = (val) => {
-    // Just update the display value, don't clamp during typing
     const numericValue = Number(val) || 0;
     if (numericValue >= 0) {
       const rubleValue = Math.round((price * numericValue) / 100);
@@ -145,13 +141,9 @@ export default function Calculator() {
   };
 
   const handleTermInput = (val) => {
-    // Only allow numbers, show "0" if empty
     const cleanVal = val.replace(/[^0-9]/g, '');
     const displayVal = cleanVal === '' ? '0' : cleanVal;
     setTermInputValue(displayVal);
-
-    // Don't clamp during typing, just update the display value
-    // The actual term value will be updated on blur/enter
   };
 
   const handleTermSlider = (val) => {
@@ -164,15 +156,16 @@ export default function Calculator() {
     setHasGuarantor(checked);
   };
 
+  // включение/выключение первого взноса: старт 2000 ₽, минимум 3000 ₽ для ограничений
   const handleDownToggle = (checked) => {
     setHasDown(checked);
     if (!checked) {
       setDownPayment(0);
       setDownInputValue("0");
     } else {
-      const minDown = Math.round(price * 0.25);
-      setDownPayment(minDown);
-      setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
+      const startDown = 2000;
+      setDownPayment(startDown);
+      setDownInputValue(new Intl.NumberFormat("ru-RU").format(startDown));
     }
   };
 
@@ -216,13 +209,38 @@ export default function Calculator() {
     });
   }, [price, term, downPayment, maxPrice, maxTerm]);
 
-  /** ===== вычисления для карточки ===== */
-  const monthlyOverpay = useMemo(() => {
-    if (!data) return 0;
-    const principal = price - (hasDown ? downPayment : 0);
-    const diff = Number(data.total) - principal;
-    return diff / (term || 1);
-  }, [data, price, downPayment, hasDown, term]);
+  /** ===== НОВЫЕ РАСЧЁТЫ ПО МУРАБАХЕ =====
+   * Берём эффективную ставку из backend (data.effectiveRate), трактуем как общую наценку на цену.
+   * totalWithMarkup = price + price * rate%
+   * financed = totalWithMarkup - downPayment (если есть взнос)
+   * monthlyPaymentCalc = financed / term (поровну по месяцам)
+   * monthlyMarkupRub = (totalWithMarkup - price) / term
+   */
+  const ratePct = useMemo(() => {
+    const raw = Number(data?.effectiveRate);
+    return Number.isFinite(raw) ? raw : 0;
+  }, [data]);
+
+  const totalWithMarkup = useMemo(() => {
+    const markup = Math.round((price * ratePct) / 100);
+    return price + markup;
+  }, [price, ratePct]);
+
+  const financedAmount = useMemo(() => {
+    const dp = hasDown ? downPayment : 0;
+    return Math.max(0, totalWithMarkup - dp);
+  }, [totalWithMarkup, hasDown, downPayment]);
+
+  const monthlyPaymentCalc = useMemo(() => {
+    const months = term || 1;
+    return Math.ceil(financedAmount / months);
+  }, [financedAmount, term]);
+
+  const monthlyMarkupRub = useMemo(() => {
+    const markupTotal = totalWithMarkup - price;
+    const months = term || 1;
+    return Math.round(markupTotal / months);
+  }, [totalWithMarkup, price, term]);
 
   /** ===== отправка WA ===== */
   const sendWA = () => {
@@ -237,9 +255,9 @@ export default function Calculator() {
       ` *Срок:* ${term} мес.`,
       ` *Поручитель:* ${hasGuarantor ? "Есть" : "Нет"}`,
       "",
-      ` *Торговая наценка в месяц:* ${data.effectiveRate}%`,
-      ` *Ежемесячный платёж:* ${fmtRub(data.monthlyPayment)}`,
-      ` *Общая сумма рассрочки:* ${fmtRub(data.total)}`,
+      ` *Ставка (наценка):* ${ratePct}%`,
+      ` *Ежемесячный платёж:* ${fmtRub(monthlyPaymentCalc)}`,
+      ` *Общая сумма рассрочки:* ${fmtRub(totalWithMarkup)}`,
     ].join("\n");
     window.open(`https://wa.me/${wa}?text=${encodeURIComponent(msg)}`, "_blank");
     setModalOpen(false);
@@ -402,10 +420,10 @@ export default function Calculator() {
           opacity: 0.5;
           pointer-events: none;
         }
-        .section-disabled .sber-range::-webkit-slider-thumb {
+        .section-disabled .sбер-range::-webkit-slider-thumb {
           opacity: 0.5;
         }
-        .section-disabled .sber-range::-moz-range-thumb {
+        .section-disabled .sбер-range::-moz-range-thumb {
           opacity: 0.5;
         }
         @media (min-width: 768px) {
@@ -431,7 +449,7 @@ export default function Calculator() {
           <div className="rounded-2xl border p-4" style={{ backgroundColor: INFO_BLUE_BG, borderColor: INFO_BLUE }}>
             <div className="flex items-start gap-3">
               <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{ color: INFO_BLUE }}>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657л-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
               <div className="text-sm leading-relaxed" style={{ color: INFO_BLUE }}>
                 <p>
@@ -584,7 +602,7 @@ export default function Calculator() {
                     value={hasDown ? downInputValue : "0"}
                     onChange={hasDown ? (e) => handleDownInput(e.target.value) : undefined}
                     onBlur={hasDown ? () => {
-                      const minDown = Math.round(price * 0.25);
+                      const minDown = 3000;
                       const clampedValue = clamp(toNumber(downInputValue), minDown, price);
                       const formattedValue = new Intl.NumberFormat("ru-RU").format(clampedValue);
                       setDownInputValue(formattedValue);
@@ -592,7 +610,7 @@ export default function Calculator() {
                     } : undefined}
                     onKeyDown={hasDown ? (e) => {
                       if (e.key === 'Enter') {
-                        const minDown = Math.round(price * 0.25);
+                        const minDown = 3000;
                         const clampedValue = clamp(toNumber(downInputValue), minDown, price);
                         const formattedValue = new Intl.NumberFormat("ru-RU").format(clampedValue);
                         setDownInputValue(formattedValue);
@@ -643,13 +661,13 @@ export default function Calculator() {
                 <input
                   className="sber-range marks-4"
                   type="range"
-                  min={Math.round(price * 0.25)}
+                  min={3000}
                   max={price}
                   step={500}
-                  value={hasDown ? clamp(downPayment, Math.round(price * 0.25), price) : Math.round(price * 0.25)}
+                  value={hasDown ? clamp(downPayment, 3000, price) : 3000}
                   onChange={(e) => {
                     handleDownSlider(e.target.value);
-                    updateSliderFill(e.target, e.target.value, Math.round(price * 0.25), price);
+                    updateSliderFill(e.target, e.target.value, 3000, price);
                   }}
                   disabled={!hasDown}
                 />
@@ -657,14 +675,12 @@ export default function Calculator() {
 
               <div className="relative mx-6 overflow-visible">
                 <div className="relative w-full">
-                  <span className="absolute text-gray-500 text-sm whitespace-nowrap" style={{ left: '0%', transform: 'translateX(0%)' }}>{new Intl.NumberFormat("ru-RU").format(Math.round(price * 0.25))} ₽</span>
-                  <span className="absolute text-gray-500 text-sm whitespace-nowrap" style={{ left: '50%', transform: 'translateX(-50%)' }}>{new Intl.NumberFormat("ru-RU").format(Math.round(price * 0.625))} ₽</span>
+                  <span className="absolute text-gray-500 text-sm whitespace-nowrap" style={{ left: '0%', transform: 'translateX(0%)' }}>{new Intl.NumberFormat("ru-RU").format(3000)} ₽</span>
+                  <span className="absolute text-gray-500 text-sm whitespace-nowrap" style={{ left: '50%', transform: 'translateX(-50%)' }}>{new Intl.NumberFormat("ru-RU").format(Math.round(price * 0.5))} ₽</span>
                   <span className="absolute text-gray-500 text-sm whitespace-nowrap" style={{ left: '100%', transform: 'translateX(-100%)' }}>{new Intl.NumberFormat("ru-RU").format(price)} ₽</span>
                 </div>
               </div>
             </section>
-
-
           </div>
 
           {/* правая карточка с расчётом */}
@@ -673,7 +689,7 @@ export default function Calculator() {
             <div className="hidden lg:block rounded-2xl border p-4" style={{ backgroundColor: INFO_BLUE_BG, borderColor: INFO_BLUE }}>
               <div className="flex items-start gap-3">
                 <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{ color: INFO_BLUE }}>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547з" />
                 </svg>
                 <div className="text-sm leading-relaxed" style={{ color: INFO_BLUE }}>
                   <p>
@@ -689,12 +705,12 @@ export default function Calculator() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
               <div className="text-gray-500 text-sm mb-2">Ежемесячный платёж:</div>
               <div className="text-3xl lg:text-4xl font-bold mb-4 text-[#223042]">
-                {data ? fmtRub(data.monthlyPayment) : "—"}
+                {fmtRub(monthlyPaymentCalc)}
               </div>
 
               <div className="grid grid-cols-2 gap-6 text-sm mb-6">
-                <InfoRow label="Общая сумма рассрочки:" value={data ? fmtRub(data.total) : "—"} />
-                <InfoRow label="Торговая наценка в месяц:" value={data ? fmtRub(monthlyOverpay) : "—"} />
+                <InfoRow label="Общая сумма рассрочки:" value={fmtRub(totalWithMarkup)} />
+                <InfoRow label="Торговая наценка в месяц:" value={fmtRub(monthlyMarkupRub)} />
               </div>
 
               <button
