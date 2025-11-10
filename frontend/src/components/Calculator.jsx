@@ -209,38 +209,75 @@ export default function Calculator() {
     });
   }, [price, term, downPayment, maxPrice, maxTerm]);
 
-  /** ===== НОВЫЕ РАСЧЁТЫ ПО МУРАБАХЕ =====
-   * Берём эффективную ставку из backend (data.effectiveRate), трактуем как общую наценку на цену.
-   * totalWithMarkup = price + price * rate%
-   * financed = totalWithMarkup - downPayment (если есть взнос)
-   * monthlyPaymentCalc = financed / term (поровну по месяцам)
-   * monthlyMarkupRub = (totalWithMarkup - price) / term
-   */
-  const ratePct = useMemo(() => {
-    const raw = Number(data?.effectiveRate);
-    return Number.isFinite(raw) ? raw : 0;
-  }, [data]);
+/** ===== НОВЫЕ РАСЧЁТЫ ПО МУРАБАХЕ (с округлением и пересчётом реальной наценки) ===== */
+const ratePct = useMemo(() => {
+  const raw = Number(data?.effectiveRate);
+  return Number.isFinite(raw) ? raw : 0;
+}, [data]);
 
-  const totalWithMarkup = useMemo(() => {
-    const markup = Math.round((price * ratePct) / 100);
-    return price + markup;
-  }, [price, ratePct]);
+// Наценка (из бэкенда)
+const totalWithMarkup = useMemo(() => {
+  const markup = Math.round((price * ratePct) / 100);
+  return price + markup;
+}, [price, ratePct]);
 
-  const financedAmount = useMemo(() => {
-    const dp = hasDown ? downPayment : 0;
-    return Math.max(0, totalWithMarkup - dp);
-  }, [totalWithMarkup, hasDown, downPayment]);
+// Сумма к финансированию
+const financedAmount = useMemo(() => {
+  const dp = hasDown ? downPayment : 0;
+  return Math.max(0, totalWithMarkup - dp);
+}, [totalWithMarkup, hasDown, downPayment]);
 
-  const monthlyPaymentCalc = useMemo(() => {
-    const months = term || 1;
-    return Math.ceil(financedAmount / months);
-  }, [financedAmount, term]);
+// Округляем ежемесячный платёж и помечаем, если была корректировка
+const [wasRounded, setWasRounded] = useState(false);
 
-  const monthlyMarkupRub = useMemo(() => {
-    const markupTotal = totalWithMarkup - price;
-    const months = term || 1;
-    return Math.round(markupTotal / months);
-  }, [totalWithMarkup, price, term]);
+const monthlyPaymentCalc = useMemo(() => {
+  const months = term || 1;
+  if (months <= 0) return 0;
+
+  const raw = financedAmount / months;
+  let rounded = raw;
+
+  // Округляем до ближайших 50 ₽
+  const remainder = raw % 100;
+
+  if (remainder < 25) {
+    rounded = raw - remainder; // вниз (пример: 2766 → 2750)
+  } else if (remainder >= 75) {
+    rounded = raw - remainder + 100; // вверх (пример: 2785 → 2800)
+  } else {
+    rounded = raw - remainder + 50; // середина — до 50
+  }
+
+  if (Math.round(rounded) !== Math.round(raw)) {
+    setWasRounded(true);
+  } else {
+    setWasRounded(false);
+  }
+
+  return Math.round(rounded);
+}, [financedAmount, term]);
+
+// Пересчитанная общая сумма (наценка фактически изменилась)
+const totalWithMarkupRounded = useMemo(() => {
+  const dp = hasDown ? downPayment : 0;
+  return Math.round(monthlyPaymentCalc * term + dp);
+}, [monthlyPaymentCalc, term, hasDown, downPayment]);
+
+// Новая "реальная" общая наценка и ставка
+const realMarkupRub = useMemo(() => {
+  return totalWithMarkupRounded - price;
+}, [totalWithMarkupRounded, price]);
+
+const realMarkupPct = useMemo(() => {
+  if (!price) return 0;
+  return ((realMarkupRub / price) * 100).toFixed(2);
+}, [realMarkupRub, price]);
+
+// Новая наценка в месяц
+const monthlyMarkupRub = useMemo(() => {
+  const months = term || 1;
+  return Math.round(realMarkupRub / months);
+}, [realMarkupRub, term]);
 
   /** ===== отправка WA ===== */
   const sendWA = () => {
@@ -709,7 +746,7 @@ export default function Calculator() {
               </div>
 
               <div className="grid grid-cols-2 gap-6 text-sm mb-6">
-                <InfoRow label="Общая сумма рассрочки:" value={fmtRub(totalWithMarkup)} />
+                <InfoRow label="Общая сумма рассрочки:" value={fmtRub(totalWithMarkupRounded)} />
                 <InfoRow label="Торговая наценка в месяц:" value={fmtRub(monthlyMarkupRub)} />
               </div>
 
@@ -724,7 +761,7 @@ export default function Calculator() {
               </button>
 
               <p className="text-xs text-gray-500 leading-snug">
-                Стоимость товара и приведенные расчеты через калькулятор являются предварительными. Для точного определения условий договора, пожалуйста, обратитесь к менеджеру в вашем регионе.
+                Стоимость товара и приведенные расчеты через калькулятор являются предварительными. Для точного определения условий договора, пожалуйста, напишите в наш ватсап.
               </p>
 
               {error && <p className="text-red-500 text-sm mt-3">{error}</p>}
