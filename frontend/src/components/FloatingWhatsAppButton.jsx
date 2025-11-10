@@ -16,28 +16,60 @@ export default function FloatingWhatsAppButton() {
   };
 
   return (
-    <button
-      onClick={handleClick}
-      className="fixed bottom-5 right-5 z-50 flex items-center justify-center rounded-full shadow-lg transition transform hover:scale-110"
-      style={{
-        width: "80px",
-        height: "80px",
-        backgroundColor: "transparent",
-        border: "none",
-        padding: 0,
-        cursor: "pointer",
-      }}
-      aria-label="Связаться через WhatsApp"
-    >
-      <Lottie
-        animationData={whatsappAnimation}
-        loop
-        autoplay
-        style={{
-          width: "80px",
-          height: "80px",
-        }}
-      />
-    </button>
+    <>
+      <style>{`
+        .floating-whatsapp-btn {
+          position: fixed;
+          bottom: 16px;
+          right: 16px;
+          z-index: 100;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: none;
+          background: none; /* убираем фон */
+          cursor: pointer;
+          padding: 0;
+          transition: transform 0.2s ease;
+        }
+
+        .floating-whatsapp-btn:hover {
+          transform: scale(1.08);
+        }
+
+        .floating-whatsapp-icon {
+          width: 64px;
+          height: 64px;
+        }
+
+        /* уменьшение для мобильных */
+        @media (max-width: 640px) {
+          .floating-whatsapp-btn {
+            bottom: 12px;
+            right: 12px;
+          }
+
+          .floating-whatsapp-icon {
+            width: 52px;
+            height: 52px;
+          }
+        }
+      `}</style>
+
+      <button
+        onClick={handleClick}
+        className="floating-whatsapp-btn"
+        aria-label="Связаться через WhatsApp"
+      >
+        <Lottie
+          animationData={whatsappAnimation}
+          loop={false}
+          autoplay={false}
+          initialSegment={[0, 0]}
+          className="floating-whatsapp-icon"
+          style={{ background: "none" }} // убираем внутренний белый фон, если он есть
+        />
+      </button>
+    </>
   );
 }

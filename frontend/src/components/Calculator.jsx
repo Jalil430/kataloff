@@ -292,7 +292,7 @@ const monthlyMarkupRub = useMemo(() => {
       ` *Срок:* ${term} мес.`,
       ` *Поручитель:* ${hasGuarantor ? "Есть" : "Нет"}`,
       "",
-      ` *Ставка (наценка):* ${ratePct}%`,
+      
       ` *Ежемесячный платёж:* ${fmtRub(monthlyPaymentCalc)}`,
       ` *Общая сумма рассрочки:* ${fmtRub(totalWithMarkup)}`,
     ].join("\n");
