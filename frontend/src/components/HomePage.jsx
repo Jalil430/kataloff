@@ -14,10 +14,9 @@ export default function HomePage() {
       <section className="relative overflow-hidden bg-gradient-to-br from-[#043c6f] via-[#2B7A8F] to-[#5bc5a7] text-white">
         <div className="absolute inset-0 bg-black/10"></div>
         <div className="relative container mx-auto px-6 py-20 lg:py-32">
-          <div className="max-w-4xl mx-auto text-center">
+          <div className="max-w-5xl mx-auto text-center">
             <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
-              Исламское финансирование
-              <span className="block text-[#2d9f8a]">без процентов</span>
+              Исламское финансирование <span className="text-[#2d9f8a]">без процентов</span>
             </h1>
             <p className="text-xl md:text-2xl text-white/90 mb-12 leading-relaxed max-w-3xl mx-auto">
               Получите товары в рассрочку по принципам шариата. Прозрачные условия, 
