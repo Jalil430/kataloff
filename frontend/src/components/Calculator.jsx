@@ -4,9 +4,10 @@ import ModalForm from "./ModalForm.jsx";
 import ContactSection from "./ContactSection.jsx";
 
 /** ===== палитра ===== */
-const LOGO_BLUE = "#1A3A5C";
-const LOGO_BLUE_HOVER = "#14304A";
-const LOGO_GREEN = "#4A9B7E";
+const LOGO_BLUE = "#043c6f";
+const LOGO_BLUE_HOVER = "#032f5a";
+const LOGO_GREEN = "#8ed7bc";
+const LOGO_MID = "#2d9f8a";
 const INFO_BLUE = "#42A5F5";
 const INFO_BLUE_BG = "#E3F2FD";
 
@@ -111,7 +112,7 @@ export default function Calculator() {
 
   const updateSliderFill = (slider, value, min, max) => {
     const percentage = ((value - min) / (max - min)) * 100;
-    slider.style.background = `linear-gradient(to right, ${LOGO_GREEN} 0%, ${LOGO_GREEN} ${percentage}%, #e5e7eb ${percentage}%, #e5e7eb 100%)`;
+    slider.style.background = `linear-gradient(to right, ${LOGO_MID} 0%, ${LOGO_MID} ${percentage}%, #e5e7eb ${percentage}%, #e5e7eb 100%)`;
   };
 
   const handleDownInput = (val) => {
@@ -264,9 +265,9 @@ export default function Calculator() {
           width: 20px;
           height: 20px;
           border-radius: 50%;
-          background: ${LOGO_GREEN};
+          background: ${LOGO_MID};
           border: 3px solid white;
-          box-shadow: 0 0 0 1px ${LOGO_GREEN};
+          box-shadow: 0 0 0 1px ${LOGO_MID};
           cursor: pointer;
           position: relative;
         }
@@ -274,9 +275,9 @@ export default function Calculator() {
           width: 20px;
           height: 20px;
           border-radius: 50%;
-          background: ${LOGO_GREEN};
+          background: ${LOGO_MID};
           border: 3px solid white;
-          box-shadow: 0 0 0 1px ${LOGO_GREEN};
+          box-shadow: 0 0 0 1px ${LOGO_MID};
           cursor: pointer;
           transform: translateY(-50%);
         }
@@ -310,8 +311,8 @@ export default function Calculator() {
           outline: none;
         }
         .pill-input:focus {
-          border-color: ${LOGO_GREEN};
-          box-shadow: 0 0 0 2px ${LOGO_GREEN}33;
+          border-color: ${LOGO_MID};
+          box-shadow: 0 0 0 2px ${LOGO_MID}33;
         }
         .pill-input-percent {
           background: #f4f6f8;
@@ -330,8 +331,8 @@ export default function Calculator() {
           margin: 0;
         }
         .pill-input-percent:focus {
-          border-color: ${LOGO_GREEN};
-          box-shadow: 0 0 0 2px ${LOGO_GREEN}33;
+          border-color: ${LOGO_MID};
+          box-shadow: 0 0 0 2px ${LOGO_MID}33;
         }
         .pill-input:disabled,
         .pill-input[readonly] {
@@ -365,8 +366,8 @@ export default function Calculator() {
           margin: 0;
         }
         .pill-input-percent-small:focus {
-          border-color: ${LOGO_GREEN};
-          box-shadow: 0 0 0 2px ${LOGO_GREEN}33;
+          border-color: ${LOGO_MID};
+          box-shadow: 0 0 0 2px ${LOGO_MID}33;
         }
         .pill-input-percent-small:disabled,
         .pill-input-percent-small[readonly] {
@@ -384,7 +385,7 @@ export default function Calculator() {
           border-radius: 12px;
           border: 1px solid #e5e7eb;
           background: white;
-          color: ${LOGO_GREEN};
+          color: ${LOGO_MID};
           font-weight: 500;
           cursor: pointer;
           transition: all 0.2s ease;
@@ -396,7 +397,7 @@ export default function Calculator() {
         .option-button.active {
           background: linear-gradient(135deg, ${LOGO_BLUE} 0%, ${LOGO_GREEN} 100%);
           color: white;
-          border-color: ${LOGO_GREEN};
+          border-color: ${LOGO_MID};
         }
         .section-disabled {
           opacity: 0.5;
