@@ -2,7 +2,7 @@ import React from "react";
 
 const LOGO_BLUE = "#043c6f";
 const LOGO_BLUE_HOVER = "#032f5a";
-const LOGO_GREEN = "#8ed7bc";
+const LOGO_GREEN = "#5bc5a7";
 const LOGO_MID = "#2d9f8a";
 
 export default function ModalForm({

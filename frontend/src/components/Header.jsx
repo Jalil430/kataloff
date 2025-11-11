@@ -47,7 +47,7 @@ export default function Header() {
           <div className="hidden md:flex items-center space-x-4">
             <Link
               to="/calculator"
-              className="bg-gradient-to-r from-[#043c6f] to-[#8ed7bc] text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+              className="bg-gradient-to-r from-[#043c6f] to-[#5bc5a7] text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg transform hover:scale-105 transition-all duration-200"
             >
               Рассчитать рассрочку
             </Link>
@@ -79,7 +79,7 @@ export default function Header() {
               className={`block text-lg font-medium py-2 transition-colors ${location.pathname === '/' ? 'text-[#2d9f8a]' : 'text-gray-700'
                 }`}
             >
-              🏠 Главная
+              Главная
             </Link>
             <Link
               to="/calculator"
@@ -87,7 +87,7 @@ export default function Header() {
               className={`block text-lg font-medium py-2 transition-colors ${location.pathname === '/calculator' ? 'text-[#2d9f8a]' : 'text-gray-700'
                 }`}
             >
-              💰 Калькулятор
+              Калькулятор
             </Link>
             <Link
               to="/check"
@@ -95,13 +95,13 @@ export default function Header() {
               className={`block text-lg font-medium py-2 transition-colors ${location.pathname === '/check' ? 'text-[#2d9f8a]' : 'text-gray-700'
                 }`}
             >
-              📄 Мои рассрочки
+              Мои рассрочки
             </Link>
             <div className="pt-4 border-t border-gray-200">
               <Link
                 to="/calculator"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="block w-full bg-gradient-to-r from-[#043c6f] to-[#8ed7bc] text-white px-6 py-3 rounded-full font-semibold text-center"
+                className="block w-full bg-gradient-to-r from-[#043c6f] to-[#5bc5a7] text-white px-6 py-3 rounded-full font-semibold text-center"
               >
                 Рассчитать рассрочку
               </Link>

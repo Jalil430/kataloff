@@ -158,7 +158,7 @@ export default function ClientSearch() {
               className={`px-10 py-3 rounded-full font-semibold transition-all duration-200 whitespace-nowrap min-w-[120px] ${
                 loading || !fio || !installmentNumber
                   ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  : "bg-gradient-to-r from-[#043c6f] to-[#8ed7bc] text-white hover:shadow-lg transform hover:scale-105"
+                  : "bg-gradient-to-r from-[#043c6f] to-[#5bc5a7] text-white hover:shadow-lg transform hover:scale-105"
               }`}
             >
               {loading ? "Поиск..." : "Найти"}
