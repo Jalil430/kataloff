@@ -15,9 +15,9 @@ type CalcRequest struct {
 }
 
 type CalcResponse struct {
-	EffectiveRate  float64 `json:"effectiveRate"`  // торговая наценка за весь срок (%)
+	EffectiveRate  float64 `json:"effectiveRate"`  // торговая наценка (%)
 	MonthlyPayment float64 `json:"monthlyPayment"` // платёж в месяц
-	Total          float64 `json:"total"`          // сумма к оплате (включая взнос)
+	Total          float64 `json:"total"`          // сумма к оплате
 	TotalMarkup    float64 `json:"totalMarkup"`    // общая наценка
 	DownPayment    float64 `json:"downPayment"`    // первоначальный взнос
 }
@@ -37,10 +37,10 @@ func compute(req CalcRequest) (CalcResponse, error) {
 		return CalcResponse{}, errors.New("Превышен срок рассрочки")
 	}
 
-	// 🧮 Получаем торговую наценку (а не процент по долгу!)
+	// 🧮 Получаем торговую наценку (не процент кредита!)
 	tradeMarkupPercent := percentForTerm(req.Term, req.HasDown)
 
-	// 💵 Первый взнос
+	// 💵 Рассчитываем первый взнос
 	downPayment := 0.0
 	if req.HasDown {
 		if req.DownPercent > 0 {
@@ -50,19 +50,18 @@ func compute(req CalcRequest) (CalcResponse, error) {
 		}
 	}
 
-	// 💰 Финансируемая часть (сумма к рассрочке)
+	// 💰 Финансируемая часть
 	financed := req.Price - downPayment
 
-	// 📈 Расчёт по принципу исламской рассрочки:
-	// цена = себестоимость + фиксированная торговая наценка
+	// 📈 Расчёт по исламской схеме (фиксированная наценка)
 	totalMarkup := financed * (tradeMarkupPercent / 100)
 	total := financed + totalMarkup
 	monthly := total / float64(req.Term)
 
 	return CalcResponse{
-		EffectiveRate:  tradeMarkupPercent,           // просто процент торговой надбавки
-		MonthlyPayment: math.Round(monthly),          // равные доли, без процентов
-		Total:          math.Round(total + downPayment), // добавляем взнос для общей суммы
+		EffectiveRate:  tradeMarkupPercent,           // наценка в %
+		MonthlyPayment: math.Round(monthly),          // равные доли
+		Total:          math.Round(total + downPayment), // вся сумма
 		TotalMarkup:    math.Round(totalMarkup),
 		DownPayment:    math.Round(downPayment),
 	}, nil
@@ -90,6 +89,7 @@ func percentForTerm(term int, hasDown bool) float64 {
 	if term > 10 {
 		term = 10
 	}
+
 
 	withDown := map[int]float64{
 		3: 15, 4: 19, 5: 23, 6: 28, 7: 33, 8: 38, 9: 43, 10: 48, 11: 53, 12: 58,
