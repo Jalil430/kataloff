@@ -37,7 +37,7 @@ func compute(req CalcRequest) (CalcResponse, error) {
 		return CalcResponse{}, errors.New("Превышен срок рассрочки")
 	}
 
-	// 🧮 Получаем торговую наценку (не процент кредита!)
+	// 🧮 Получаем торговую наценку (а не кредитную ставку)
 	tradeMarkupPercent := percentForTerm(req.Term, req.HasDown)
 
 	// 💵 Рассчитываем первый взнос
@@ -46,26 +46,28 @@ func compute(req CalcRequest) (CalcResponse, error) {
 		if req.DownPercent > 0 {
 			downPayment = req.Price * (req.DownPercent / 100)
 		} else {
-			downPayment = req.Price * 0.2 // Default to 20% minimum
+			downPayment = req.Price * 0.2 // по умолчанию 20 %
 		}
-		// Ensure minimum 20% down payment
-		minDownPayment := req.Price * 0.2
-		if downPayment < minDownPayment {
-			downPayment = minDownPayment
+
+		// Гарантируем минимум 20 %
+		minDown := req.Price * 0.2
+		if downPayment < minDown {
+			downPayment = minDown
 		}
 	}
 
-	// 💳 Расчёты
-	// Apply markup to the full product price, not just financed amount
-	totalWithMarkup := req.Price * (1 + baseRate/100)
-	totalMarkup := totalWithMarkup - req.Price
-	financedAmount := totalWithMarkup - downPayment
-	monthly := financedAmount / float64(req.Term)
+	// 💰 Финансируемая часть
+	financed := req.Price - downPayment
+
+	// 📈 Исламская рассрочка (Мурабаха): фиксированная торговая наценка
+	totalMarkup := financed * (tradeMarkupPercent / 100)
+	total := financed + totalMarkup
+	monthly := total / float64(req.Term)
 
 	return CalcResponse{
-		EffectiveRate:  baseRate,
-		MonthlyPayment: math.Round(monthly),
-		Total:          math.Round(totalWithMarkup),
+		EffectiveRate:  tradeMarkupPercent,        // просто наценка, не ставка
+		MonthlyPayment: math.Round(monthly),       // равные доли
+		Total:          math.Round(total + downPayment), // полная сумма с взносом
 		TotalMarkup:    math.Round(totalMarkup),
 		DownPayment:    math.Round(downPayment),
 	}, nil
@@ -75,13 +77,14 @@ func compute(req CalcRequest) (CalcResponse, error) {
 func limits(guarantor, down bool) (float64, int, error) {
 	switch {
 	case !guarantor:
+		// Без поручителя — до 70 000 ₽ и 8 мес
 		return 70000, 8, nil
 	case guarantor && !down:
+		// С поручителем, без взноса — до 100 000 ₽ и 10 мес
 		return 100000, 10, nil
 	case guarantor && down:
-		// С поручителем и взносом — до 200 000 ₽ и 10 мес
+		// С поручителем и первым взносом — до 200 000 ₽ и 10 мес
 		return 200000, 10, nil
-
 	default:
 		return 0, 0, errors.New("некорректное сочетание параметров")
 	}
@@ -95,7 +98,6 @@ func percentForTerm(term int, hasDown bool) float64 {
 	if term > 10 {
 		term = 10
 	}
-
 
 	withDown := map[int]float64{
 		3: 15, 4: 19, 5: 23, 6: 28, 7: 33, 8: 38, 9: 43, 10: 48, 11: 53, 12: 58,
