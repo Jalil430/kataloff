@@ -1,8 +1,9 @@
 import React from "react";
 
-const LOGO_BLUE = "#1A3A5C";
-const LOGO_BLUE_HOVER = "#14304A";
-const LOGO_GREEN = "#4A9B7E";
+const LOGO_BLUE = "#043c6f";
+const LOGO_BLUE_HOVER = "#032f5a";
+const LOGO_GREEN = "#5bc5a7";
+const LOGO_MID = "#2d9f8a";
 
 export default function ModalForm({
   onClose,
@@ -44,8 +45,8 @@ export default function ModalForm({
                 placeholder="Введите ФИО"
                 className="w-full p-3 rounded-xl border border-gray-300 outline-none bg-white"
                 onFocus={(e) => {
-                  e.target.style.borderColor = LOGO_GREEN;
-                  e.target.style.boxShadow = `0 0 0 2px ${LOGO_GREEN}33`;
+                  e.target.style.borderColor = LOGO_MID;
+                  e.target.style.boxShadow = `0 0 0 2px ${LOGO_MID}33`;
                 }}
                 onBlur={(e) => {
                   e.target.style.borderColor = '#d1d5db';
@@ -63,8 +64,8 @@ export default function ModalForm({
                 placeholder="Например: iPhone 15"
                 className="w-full p-3 rounded-xl border border-gray-300 outline-none bg-white"
                 onFocus={(e) => {
-                  e.target.style.borderColor = LOGO_GREEN;
-                  e.target.style.boxShadow = `0 0 0 2px ${LOGO_GREEN}33`;
+                  e.target.style.borderColor = LOGO_MID;
+                  e.target.style.boxShadow = `0 0 0 2px ${LOGO_MID}33`;
                 }}
                 onBlur={(e) => {
                   e.target.style.borderColor = '#d1d5db';
