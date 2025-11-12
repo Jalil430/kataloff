@@ -71,13 +71,13 @@ func compute(req CalcRequest) (CalcResponse, error) {
 	}, nil
 }
 
-// --- Округление к ближайшим 50 ₽ ---
+// --- Округление вверх до ближайших 50 ₽ ---
 func roundTo50(n float64) float64 {
 	remainder := math.Mod(n, 50)
-	if remainder >= 25 {
+	if remainder > 0 {
 		return n - remainder + 50
 	}
-	return n - remainder
+	return n
 }
 
 // ---------- Лимиты ----------
