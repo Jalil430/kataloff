@@ -29,7 +29,6 @@ func compute(req CalcRequest) (CalcResponse, error) {
 		return CalcResponse{}, err
 	}
 
-	// проверки лимитов
 	if req.Price > maxPrice {
 		return CalcResponse{}, errors.New("Превышена допустимая сумма")
 	}
@@ -37,40 +36,47 @@ func compute(req CalcRequest) (CalcResponse, error) {
 		return CalcResponse{}, errors.New("Превышен срок рассрочки")
 	}
 
-	// 🧮 Получаем торговую наценку (а не кредитную ставку)
 	tradeMarkupPercent := percentForTerm(req.Term, req.HasDown)
 
-	// 💵 Рассчитываем первый взнос
 	downPayment := 0.0
 	if req.HasDown {
 		if req.DownPercent > 0 {
 			downPayment = req.Price * (req.DownPercent / 100)
 		} else {
-			downPayment = req.Price * 0.2 // по умолчанию 20 %
+			downPayment = req.Price * 0.2
 		}
-
-		// Гарантируем минимум 20 %
-		minDown := req.Price * 0.2
-		if downPayment < minDown {
-			downPayment = minDown
+		if downPayment < req.Price*0.2 {
+			downPayment = req.Price * 0.2
 		}
 	}
 
-	// 💰 Финансируемая часть
 	financed := req.Price - downPayment
-
-	// 📈 Исламская рассрочка (Мурабаха): фиксированная торговая наценка
 	totalMarkup := financed * (tradeMarkupPercent / 100)
 	total := financed + totalMarkup
-	monthly := total / float64(req.Term)
+
+	// ✅ Наше “умное” округление до 50₽
+	rawMonthly := total / float64(req.Term)
+	monthlyRounded := roundTo50(rawMonthly)
+
+	totalRounded := monthlyRounded*float64(req.Term) + roundTo50(downPayment)
+	totalMarkupRounded := totalRounded - req.Price
 
 	return CalcResponse{
-		EffectiveRate:  tradeMarkupPercent,        // просто наценка, не ставка
-		MonthlyPayment: math.Round(monthly),       // равные доли
-		Total:          math.Round(total + downPayment), // полная сумма с взносом
-		TotalMarkup:    math.Round(totalMarkup),
-		DownPayment:    math.Round(downPayment),
+		EffectiveRate:  tradeMarkupPercent,
+		MonthlyPayment: monthlyRounded,
+		Total:          totalRounded,
+		TotalMarkup:    roundTo50(totalMarkupRounded),
+		DownPayment:    roundTo50(downPayment),
 	}, nil
+}
+
+// --- Округление к ближайшим 50 ₽ ---
+func roundTo50(n float64) float64 {
+	remainder := math.Mod(n, 50)
+	if remainder >= 25 {
+		return n - remainder + 50
+	}
+	return n - remainder
 }
 
 // ---------- Лимиты ----------
