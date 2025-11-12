@@ -50,12 +50,13 @@ func compute(req CalcRequest) (CalcResponse, error) {
 		}
 	}
 
-	financed := req.Price - downPayment
-	totalMarkup := financed * (tradeMarkupPercent / 100)
-	total := financed + totalMarkup
+	// Применяем наценку к полной стоимости товара, а не только к финансируемой сумме
+	totalMarkup := req.Price * (tradeMarkupPercent / 100)
+	totalWithMarkup := req.Price + totalMarkup
+	financed := totalWithMarkup - downPayment
 
 	// ✅ Наше “умное” округление до 50₽
-	rawMonthly := total / float64(req.Term)
+	rawMonthly := financed / float64(req.Term)
 	monthlyRounded := roundTo50(rawMonthly)
 
 	totalRounded := monthlyRounded*float64(req.Term) + roundTo50(downPayment)
