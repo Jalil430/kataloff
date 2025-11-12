@@ -4,9 +4,10 @@ import ModalForm from "./ModalForm.jsx";
 import ContactSection from "./ContactSection.jsx";
 
 /** ===== палитра ===== */
-const LOGO_BLUE = "#1A3A5C";
-const LOGO_BLUE_HOVER = "#14304A";
-const LOGO_GREEN = "#4A9B7E";
+const LOGO_BLUE = "#043c6f";
+const LOGO_BLUE_HOVER = "#032f5a";
+const LOGO_GREEN = "#5bc5a7";
+const LOGO_MID = "#2d9f8a";
 const INFO_BLUE = "#42A5F5";
 const INFO_BLUE_BG = "#E3F2FD";
 
@@ -29,7 +30,7 @@ export default function Calculator() {
 
   /* динамический потолок цены */
   const maxPrice = useMemo(() => {
-    if (hasGuarantor && hasDown) return 150_000;
+    if (hasGuarantor && hasDown) return 200_000;
     if (hasGuarantor) return 100_000;
     return 70_000;
   }, [hasGuarantor, hasDown]);
@@ -51,6 +52,7 @@ export default function Calculator() {
   /* расчёт/WA */
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const [wa, setWa] = useState("");
   const lastReqId = useRef(0);
 
@@ -106,11 +108,20 @@ export default function Calculator() {
     const n = Number(val);
     setPrice(n);
     setPriceInputValue(new Intl.NumberFormat("ru-RU").format(n));
+    
+    // Auto-adjust down payment to maintain minimum 20% when hasDown is true
+    if (hasDown) {
+      const minDown = Math.round(n * 0.2);
+      if (downPayment < minDown) {
+        setDownPayment(minDown);
+        setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
+      }
+    }
   };
 
   const updateSliderFill = (slider, value, min, max) => {
     const percentage = ((value - min) / (max - min)) * 100;
-    slider.style.background = `linear-gradient(to right, ${LOGO_GREEN} 0%, ${LOGO_GREEN} ${percentage}%, #e5e7eb ${percentage}%, #e5e7eb 100%)`;
+    slider.style.background = `linear-gradient(to right, ${LOGO_MID} 0%, ${LOGO_MID} ${percentage}%, #e5e7eb ${percentage}%, #e5e7eb 100%)`;
   };
 
   const handleDownInput = (val) => {
@@ -125,7 +136,7 @@ export default function Calculator() {
   };
 
   const handleDownSlider = (val) => {
-    const minDown = 3000; // фиксированный минимум для ползунка
+    const minDown = Math.round(price * 0.2);
     const n = clamp(Number(val), minDown, price);
     setDownPayment(n);
     setDownInputValue(new Intl.NumberFormat("ru-RU").format(n));
@@ -163,9 +174,9 @@ export default function Calculator() {
       setDownPayment(0);
       setDownInputValue("0");
     } else {
-      const startDown = 2000;
-      setDownPayment(startDown);
-      setDownInputValue(new Intl.NumberFormat("ru-RU").format(startDown));
+      const minDown = Math.round(price * 0.2);
+      setDownPayment(minDown);
+      setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
     }
   };
 
@@ -173,6 +184,7 @@ export default function Calculator() {
   const doCalc = useCallback(async () => {
     const reqId = ++lastReqId.current;
     setError("");
+    setLoading(true);
     try {
       const payload = {
         productName,
@@ -182,14 +194,24 @@ export default function Calculator() {
         hasDown,
         downPercent,
       };
-      const res = await sendCalc(payload);
+      console.log('Sending payload:', payload); // Debug log
+      
+      // Add minimum loading time for better UX
+      const [res] = await Promise.all([
+        sendCalc(payload),
+        new Promise(resolve => setTimeout(resolve, 300)) // Minimum 300ms loading
+      ]);
+      
+      console.log('Received response:', res); // Debug log
       if (reqId === lastReqId.current) {
         setData(res);
+        setLoading(false);
       }
     } catch (e) {
       if (reqId === lastReqId.current) {
         setError(e?.message || "Ошибка расчёта");
         setData(null);
+        setLoading(false);
       }
     }
   }, [productName, price, term, hasGuarantor, hasDown, downPercent]);
@@ -209,100 +231,38 @@ export default function Calculator() {
     });
   }, [price, term, downPayment, maxPrice, maxTerm]);
 
-/** ===== НОВЫЕ РАСЧЁТЫ ПО МУРАБАХЕ (с округлением и пересчётом реальной наценки) ===== */
-const ratePct = useMemo(() => {
-  const raw = Number(data?.effectiveRate);
-  return Number.isFinite(raw) ? raw : 0;
-}, [data]);
-
-// Наценка (из бэкенда)
-const totalWithMarkup = useMemo(() => {
-  const markup = Math.round((price * ratePct) / 100);
-  return price + markup;
-}, [price, ratePct]);
-
-// Сумма к финансированию
-const financedAmount = useMemo(() => {
-  const dp = hasDown ? downPayment : 0;
-  return Math.max(0, totalWithMarkup - dp);
-}, [totalWithMarkup, hasDown, downPayment]);
-
-// Округляем ежемесячный платёж и помечаем, если была корректировка
-const [wasRounded, setWasRounded] = useState(false);
-
-const monthlyPaymentCalc = useMemo(() => {
-  const months = term || 1;
-  if (months <= 0) return 0;
-
-  const raw = financedAmount / months;
-  let rounded = raw;
-
-  // Округляем до ближайших 50 ₽
-  const remainder = raw % 100;
-
-  if (remainder < 25) {
-    rounded = raw - remainder; // вниз (пример: 2766 → 2750)
-  } else if (remainder >= 75) {
-    rounded = raw - remainder + 100; // вверх (пример: 2785 → 2800)
-  } else {
-    rounded = raw - remainder + 50; // середина — до 50
-  }
-
-  if (Math.round(rounded) !== Math.round(raw)) {
-    setWasRounded(true);
-  } else {
-    setWasRounded(false);
-  }
-
-  return Math.round(rounded);
-}, [financedAmount, term]);
-
-// Пересчитанная общая сумма (наценка фактически изменилась)
-const totalWithMarkupRounded = useMemo(() => {
-  const dp = hasDown ? downPayment : 0;
-  return Math.round(monthlyPaymentCalc * term + dp);
-}, [monthlyPaymentCalc, term, hasDown, downPayment]);
-
-// Новая "реальная" общая наценка и ставка
-const realMarkupRub = useMemo(() => {
-  return totalWithMarkupRounded - price;
-}, [totalWithMarkupRounded, price]);
-
-const realMarkupPct = useMemo(() => {
-  if (!price) return 0;
-  return ((realMarkupRub / price) * 100).toFixed(2);
-}, [realMarkupRub, price]);
-
-// Новая наценка в месяц
-const monthlyMarkupRub = useMemo(() => {
-  const months = term || 1;
-  return Math.round(realMarkupRub / months);
-}, [realMarkupRub, term]);
+  /** ===== вычисления для карточки ===== */
+  const monthlyOverpay = useMemo(() => {
+    if (!data) return 0;
+    // Use the totalMarkup from backend and divide by term to get monthly markup
+    const monthlyMarkup = Number(data.totalMarkup) / (term || 1);
+    console.log('Monthly overpay calculation:', {
+      totalMarkup: data.totalMarkup,
+      term,
+      monthlyMarkup
+    }); // Debug log
+    return monthlyMarkup;
+  }, [data, term]);
 
   /** ===== отправка WA ===== */
-/** ===== отправка WA ===== */
-const sendWA = () => {
-  if (!data) return alert("Сначала рассчитайте рассрочку");
-  if (!clientName || !productName) return alert("Введите данные в форме заявки");
-
-  const msg = [
-    "*Новая заявка на рассрочку*",
-    `*Имя клиента:* ${clientName}`,
-    `*Товар:* ${productName}`,
-    `*Стоимость товара:* ${fmtRub(price)}`,
-    `*Первоначальный взнос:* ${hasDown ? fmtRub(downPayment) : "Нет"}`,
-    `*Срок:* ${term} мес.`,
-    `*Поручитель:* ${hasGuarantor ? "Есть" : "Нет"}`,
-    "",
-    `*Ежемесячный платёж:* ${fmtRub(monthlyPaymentCalc)}`,
-    `*Общая сумма рассрочки:* ${fmtRub(totalWithMarkupRounded)}`
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  window.open(`https://wa.me/${wa}?text=${encodeURIComponent(msg)}`, "_blank");
-  setModalOpen(false);
-};
+  const sendWA = () => {
+    if (!data) return alert("Сначала рассчитайте рассрочку");
+    if (!clientName || !productName) return alert("Введите данные в форме заявки");
+    const msg = [
+      " *Новая заявка на рассрочку*",
+      ` *Имя клиента:* ${clientName}`,
+      ` *Товар:* ${productName}`,
+      ` *Стоимость товара:* ${fmtRub(price)}`,
+      `*Первоначальный взнос:* ${hasDown ? fmtRub(downPayment) : "Нет"}`,
+      ` *Срок:* ${term} мес.`,
+      ` *Поручитель:* ${hasGuarantor ? "Есть" : "Нет"}`,
+      "",
+      ` *Ежемесячный платёж:* ${fmtRub(data.monthlyPayment)}`,
+      ` *Общая сумма рассрочки:* ${fmtRub(data.total)}`,
+    ].join("\n");
+    window.open(`https://wa.me/${wa}?text=${encodeURIComponent(msg)}`, "_blank");
+    setModalOpen(false);
+  };
 
   return (
     <div className="min-h-[calc(100vh-80px)] bg-[#f6f7fb]">
@@ -323,9 +283,9 @@ const sendWA = () => {
           width: 20px;
           height: 20px;
           border-radius: 50%;
-          background: ${LOGO_GREEN};
+          background: ${LOGO_MID};
           border: 3px solid white;
-          box-shadow: 0 0 0 1px ${LOGO_GREEN};
+          box-shadow: 0 0 0 1px ${LOGO_MID};
           cursor: pointer;
           position: relative;
         }
@@ -333,9 +293,9 @@ const sendWA = () => {
           width: 20px;
           height: 20px;
           border-radius: 50%;
-          background: ${LOGO_GREEN};
+          background: ${LOGO_MID};
           border: 3px solid white;
-          box-shadow: 0 0 0 1px ${LOGO_GREEN};
+          box-shadow: 0 0 0 1px ${LOGO_MID};
           cursor: pointer;
           transform: translateY(-50%);
         }
@@ -369,8 +329,8 @@ const sendWA = () => {
           outline: none;
         }
         .pill-input:focus {
-          border-color: ${LOGO_GREEN};
-          box-shadow: 0 0 0 2px ${LOGO_GREEN}33;
+          border-color: ${LOGO_MID};
+          box-shadow: 0 0 0 2px ${LOGO_MID}33;
         }
         .pill-input-percent {
           background: #f4f6f8;
@@ -389,8 +349,8 @@ const sendWA = () => {
           margin: 0;
         }
         .pill-input-percent:focus {
-          border-color: ${LOGO_GREEN};
-          box-shadow: 0 0 0 2px ${LOGO_GREEN}33;
+          border-color: ${LOGO_MID};
+          box-shadow: 0 0 0 2px ${LOGO_MID}33;
         }
         .pill-input:disabled,
         .pill-input[readonly] {
@@ -424,8 +384,8 @@ const sendWA = () => {
           margin: 0;
         }
         .pill-input-percent-small:focus {
-          border-color: ${LOGO_GREEN};
-          box-shadow: 0 0 0 2px ${LOGO_GREEN}33;
+          border-color: ${LOGO_MID};
+          box-shadow: 0 0 0 2px ${LOGO_MID}33;
         }
         .pill-input-percent-small:disabled,
         .pill-input-percent-small[readonly] {
@@ -443,7 +403,7 @@ const sendWA = () => {
           border-radius: 12px;
           border: 1px solid #e5e7eb;
           background: white;
-          color: ${LOGO_GREEN};
+          color: ${LOGO_MID};
           font-weight: 500;
           cursor: pointer;
           transition: all 0.2s ease;
@@ -455,7 +415,7 @@ const sendWA = () => {
         .option-button.active {
           background: linear-gradient(135deg, ${LOGO_BLUE} 0%, ${LOGO_GREEN} 100%);
           color: white;
-          border-color: ${LOGO_GREEN};
+          border-color: ${LOGO_MID};
         }
         .section-disabled {
           opacity: 0.5;
@@ -490,13 +450,13 @@ const sendWA = () => {
           <div className="rounded-2xl border p-4" style={{ backgroundColor: INFO_BLUE_BG, borderColor: INFO_BLUE }}>
             <div className="flex items-start gap-3">
               <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{ color: INFO_BLUE }}>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657л-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
               <div className="text-sm leading-relaxed" style={{ color: INFO_BLUE }}>
                 <p>
                   Без поручителя — до <b>70 000 ₽</b><br />
                   С поручителем — до <b>100 000 ₽</b><br />
-                  С поручителем и первым взносом — до <b>150 000 ₽</b>
+                  С поручителем и первым взносом — до <b>200 000 ₽</b>
                 </p>
               </div>
             </div>
@@ -541,6 +501,15 @@ const sendWA = () => {
                     const formattedValue = new Intl.NumberFormat("ru-RU").format(clampedValue);
                     setPriceInputValue(formattedValue);
                     setPrice(clampedValue);
+                    
+                    // Auto-adjust down payment to maintain minimum 20% when hasDown is true
+                    if (hasDown) {
+                      const minDown = Math.round(clampedValue * 0.2);
+                      if (downPayment < minDown) {
+                        setDownPayment(minDown);
+                        setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
+                      }
+                    }
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
@@ -548,6 +517,15 @@ const sendWA = () => {
                       const formattedValue = new Intl.NumberFormat("ru-RU").format(clampedValue);
                       setPriceInputValue(formattedValue);
                       setPrice(clampedValue);
+                      
+                      // Auto-adjust down payment to maintain minimum 20% when hasDown is true
+                      if (hasDown) {
+                        const minDown = Math.round(clampedValue * 0.2);
+                        if (downPayment < minDown) {
+                          setDownPayment(minDown);
+                          setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
+                        }
+                      }
                       e.target.blur();
                     }
                   }}
@@ -643,7 +621,7 @@ const sendWA = () => {
                     value={hasDown ? downInputValue : "0"}
                     onChange={hasDown ? (e) => handleDownInput(e.target.value) : undefined}
                     onBlur={hasDown ? () => {
-                      const minDown = 3000;
+                      const minDown = Math.round(price * 0.2);
                       const clampedValue = clamp(toNumber(downInputValue), minDown, price);
                       const formattedValue = new Intl.NumberFormat("ru-RU").format(clampedValue);
                       setDownInputValue(formattedValue);
@@ -651,7 +629,7 @@ const sendWA = () => {
                     } : undefined}
                     onKeyDown={hasDown ? (e) => {
                       if (e.key === 'Enter') {
-                        const minDown = 3000;
+                        const minDown = Math.round(price * 0.2);
                         const clampedValue = clamp(toNumber(downInputValue), minDown, price);
                         const formattedValue = new Intl.NumberFormat("ru-RU").format(clampedValue);
                         setDownInputValue(formattedValue);
@@ -674,14 +652,14 @@ const sendWA = () => {
                         handleDownPercentInput(val);
                       } : undefined}
                       onBlur={hasDown ? () => {
-                        const clampedPercent = clamp(Number(downPercent) || 25, 25, 100);
+                        const clampedPercent = clamp(Number(downPercent) || 20, 20, 100);
                         const rubleValue = Math.round((price * clampedPercent) / 100);
                         setDownPayment(rubleValue);
                         setDownInputValue(new Intl.NumberFormat("ru-RU").format(rubleValue));
                       } : undefined}
                       onKeyDown={hasDown ? (e) => {
                         if (e.key === 'Enter') {
-                          const clampedPercent = clamp(Number(downPercent) || 25, 25, 100);
+                          const clampedPercent = clamp(Number(downPercent) || 20, 20, 100);
                           const rubleValue = Math.round((price * clampedPercent) / 100);
                           setDownPayment(rubleValue);
                           setDownInputValue(new Intl.NumberFormat("ru-RU").format(rubleValue));
@@ -702,13 +680,13 @@ const sendWA = () => {
                 <input
                   className="sber-range marks-4"
                   type="range"
-                  min={3000}
+                  min={Math.round(price * 0.2)}
                   max={price}
                   step={500}
-                  value={hasDown ? clamp(downPayment, 3000, price) : 3000}
+                  value={hasDown ? clamp(downPayment, Math.round(price * 0.2), price) : Math.round(price * 0.2)}
                   onChange={(e) => {
                     handleDownSlider(e.target.value);
-                    updateSliderFill(e.target, e.target.value, 3000, price);
+                    updateSliderFill(e.target, e.target.value, Math.round(price * 0.2), price);
                   }}
                   disabled={!hasDown}
                 />
@@ -716,8 +694,8 @@ const sendWA = () => {
 
               <div className="relative mx-6 overflow-visible">
                 <div className="relative w-full">
-                  <span className="absolute text-gray-500 text-sm whitespace-nowrap" style={{ left: '0%', transform: 'translateX(0%)' }}>{new Intl.NumberFormat("ru-RU").format(3000)} ₽</span>
-                  <span className="absolute text-gray-500 text-sm whitespace-nowrap" style={{ left: '50%', transform: 'translateX(-50%)' }}>{new Intl.NumberFormat("ru-RU").format(Math.round(price * 0.5))} ₽</span>
+                  <span className="absolute text-gray-500 text-sm whitespace-nowrap" style={{ left: '0%', transform: 'translateX(0%)' }}>{new Intl.NumberFormat("ru-RU").format(Math.round(price * 0.2))} ₽</span>
+                  <span className="absolute text-gray-500 text-sm whitespace-nowrap" style={{ left: '50%', transform: 'translateX(-50%)' }}>{new Intl.NumberFormat("ru-RU").format(Math.round(price * 0.6))} ₽</span>
                   <span className="absolute text-gray-500 text-sm whitespace-nowrap" style={{ left: '100%', transform: 'translateX(-100%)' }}>{new Intl.NumberFormat("ru-RU").format(price)} ₽</span>
                 </div>
               </div>
@@ -730,42 +708,57 @@ const sendWA = () => {
             <div className="hidden lg:block rounded-2xl border p-4" style={{ backgroundColor: INFO_BLUE_BG, borderColor: INFO_BLUE }}>
               <div className="flex items-start gap-3">
                 <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{ color: INFO_BLUE }}>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547з" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
                 <div className="text-sm leading-relaxed" style={{ color: INFO_BLUE }}>
                   <p>
                     Без поручителя — до <b>70 000 ₽</b><br />
                     С поручителем — до <b>100 000 ₽</b><br />
-                    С поручителем и первым взносом — до <b>150 000 ₽</b>
+                    С поручителем и первым взносом — до <b>200 000 ₽</b>
                   </p>
                 </div>
               </div>
             </div>
 
             {/* карточка с расчётом */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+            <div className={`relative bg-white rounded-2xl shadow-sm border border-gray-200 p-5 ${loading ? 'opacity-80' : ''}`}>
+              {/* Loading Overlay */}
+              {loading && (
+                <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] rounded-2xl flex items-center justify-center z-10">
+                  <div className="flex items-center space-x-3">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#2d9f8a]"></div>
+                    <span className="text-gray-600 font-medium">Расчёт...</span>
+                  </div>
+                </div>
+              )}
+              
               <div className="text-gray-500 text-sm mb-2">Ежемесячный платёж:</div>
               <div className="text-3xl lg:text-4xl font-bold mb-4 text-[#223042]">
-                {fmtRub(monthlyPaymentCalc)}
+                {data ? fmtRub(data.monthlyPayment) : "—"}
               </div>
 
               <div className="grid grid-cols-2 gap-6 text-sm mb-6">
-                <InfoRow label="Общая сумма рассрочки:" value={fmtRub(totalWithMarkupRounded)} />
-                <InfoRow label="Торговая наценка в месяц:" value={fmtRub(monthlyMarkupRub)} />
+                <InfoRow label="Общая сумма рассрочки:" value={data ? fmtRub(data.total) : "—"} />
+                <InfoRow label="Торговая наценка в месяц:" value={data ? fmtRub(monthlyOverpay) : "—"} />
               </div>
 
               <button
                 onClick={() => setModalOpen(true)}
-                className="w-full rounded-full py-3 text-white font-semibold transition shadow-sm mb-3"
-                style={{ background: `linear-gradient(135deg, ${LOGO_BLUE} 0%, ${LOGO_GREEN} 100%)` }}
-                onMouseOver={(e) => (e.currentTarget.style.background = `linear-gradient(135deg, ${LOGO_BLUE_HOVER} 0%, #5BA394 100%)`)}
-                onMouseOut={(e) => (e.currentTarget.style.background = `linear-gradient(135deg, ${LOGO_BLUE} 0%, ${LOGO_GREEN} 100%)`)}
+                disabled={loading || !data}
+                className={`w-full rounded-full py-3 font-semibold transition shadow-sm mb-3 ${
+                  loading || !data 
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                    : 'text-white'
+                }`}
+                style={loading || !data ? {} : { background: `linear-gradient(135deg, ${LOGO_BLUE} 0%, ${LOGO_GREEN} 100%)` }}
+                onMouseOver={loading || !data ? undefined : (e) => (e.currentTarget.style.background = `linear-gradient(135deg, ${LOGO_BLUE_HOVER} 0%, #5BA394 100%)`)}
+                onMouseOut={loading || !data ? undefined : (e) => (e.currentTarget.style.background = `linear-gradient(135deg, ${LOGO_BLUE} 0%, ${LOGO_GREEN} 100%)`)}
               >
-                Оформить рассрочку
+                {loading ? 'Расчёт...' : 'Оформить рассрочку'}
               </button>
 
               <p className="text-xs text-gray-500 leading-snug">
-                Стоимость товара и приведенные расчеты через калькулятор являются предварительными. Для точного определения условий договора, пожалуйста, напишите в наш ватсап.
+                Стоимость товара и приведенные расчеты через калькулятор являются предварительными. Для точного определения условий договора, пожалуйста, обратитесь на рабочий номер.
               </p>
 
               {error && <p className="text-red-500 text-sm mt-3">{error}</p>}

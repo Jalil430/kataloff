@@ -14,7 +14,7 @@ export default function Header() {
             <img
               src="/LOGO PNG.png"
               alt="Kataloff Islamic Finance"
-              className="h-12 lg:h-16 w-auto"
+              className="h-8 lg:h-12 w-auto"
             />
           </Link>
 
@@ -22,21 +22,21 @@ export default function Header() {
           <nav className="hidden md:flex items-center space-x-8">
             <Link
               to="/"
-              className={`text-lg font-medium transition-colors duration-200 hover:text-[#4A9B7E] ${location.pathname === '/' ? 'text-[#4A9B7E] border-b-2 border-[#4A9B7E] pb-1' : 'text-gray-700'
+              className={`text-lg font-medium transition-colors duration-200 hover:text-[#2d9f8a] ${location.pathname === '/' ? 'text-[#2d9f8a] border-b-2 border-[#2d9f8a] pb-1' : 'text-gray-700'
                 }`}
             >
               Главная
             </Link>
             <Link
               to="/calculator"
-              className={`text-lg font-medium transition-colors duration-200 hover:text-[#4A9B7E] ${location.pathname === '/calculator' ? 'text-[#4A9B7E] border-b-2 border-[#4A9B7E] pb-1' : 'text-gray-700'
+              className={`text-lg font-medium transition-colors duration-200 hover:text-[#2d9f8a] ${location.pathname === '/calculator' ? 'text-[#2d9f8a] border-b-2 border-[#2d9f8a] pb-1' : 'text-gray-700'
                 }`}
             >
               Калькулятор
             </Link>
             <Link
               to="/check"
-              className={`text-lg font-medium transition-colors duration-200 hover:text-[#4A9B7E] ${location.pathname === '/check' ? 'text-[#4A9B7E] border-b-2 border-[#4A9B7E] pb-1' : 'text-gray-700'
+              className={`text-lg font-medium transition-colors duration-200 hover:text-[#2d9f8a] ${location.pathname === '/check' ? 'text-[#2d9f8a] border-b-2 border-[#2d9f8a] pb-1' : 'text-gray-700'
                 }`}
             >
               Мои рассрочки
@@ -47,7 +47,7 @@ export default function Header() {
           <div className="hidden md:flex items-center space-x-4">
             <Link
               to="/calculator"
-              className="bg-gradient-to-r from-[#1A3A5C] to-[#4A9B7E] text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+              className="bg-gradient-to-r from-[#043c6f] to-[#5bc5a7] text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg transform hover:scale-105 transition-all duration-200"
             >
               Рассчитать рассрочку
             </Link>
@@ -56,7 +56,7 @@ export default function Header() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden p-2 rounded-md text-gray-700 hover:text-[#4A9B7E] hover:bg-gray-100 transition-colors"
+            className="md:hidden p-2 rounded-md text-gray-700 hover:text-[#2d9f8a] hover:bg-gray-100 transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               {isMobileMenuOpen ? (
@@ -76,32 +76,32 @@ export default function Header() {
             <Link
               to="/"
               onClick={() => setIsMobileMenuOpen(false)}
-              className={`block text-lg font-medium py-2 transition-colors ${location.pathname === '/' ? 'text-[#4A9B7E]' : 'text-gray-700'
+              className={`block text-lg font-medium py-2 transition-colors ${location.pathname === '/' ? 'text-[#2d9f8a]' : 'text-gray-700'
                 }`}
             >
-              🏠 Главная
+              Главная
             </Link>
             <Link
               to="/calculator"
               onClick={() => setIsMobileMenuOpen(false)}
-              className={`block text-lg font-medium py-2 transition-colors ${location.pathname === '/calculator' ? 'text-[#4A9B7E]' : 'text-gray-700'
+              className={`block text-lg font-medium py-2 transition-colors ${location.pathname === '/calculator' ? 'text-[#2d9f8a]' : 'text-gray-700'
                 }`}
             >
-              💰 Калькулятор
+              Калькулятор
             </Link>
             <Link
               to="/check"
               onClick={() => setIsMobileMenuOpen(false)}
-              className={`block text-lg font-medium py-2 transition-colors ${location.pathname === '/check' ? 'text-[#4A9B7E]' : 'text-gray-700'
+              className={`block text-lg font-medium py-2 transition-colors ${location.pathname === '/check' ? 'text-[#2d9f8a]' : 'text-gray-700'
                 }`}
             >
-              📄 Мои рассрочки
+              Мои рассрочки
             </Link>
             <div className="pt-4 border-t border-gray-200">
               <Link
                 to="/calculator"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="block w-full bg-gradient-to-r from-[#1A3A5C] to-[#4A9B7E] text-white px-6 py-3 rounded-full font-semibold text-center"
+                className="block w-full bg-gradient-to-r from-[#043c6f] to-[#5bc5a7] text-white px-6 py-3 rounded-full font-semibold text-center"
               >
                 Рассчитать рассрочку
               </Link>

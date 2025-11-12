@@ -46,23 +46,26 @@ func compute(req CalcRequest) (CalcResponse, error) {
 		if req.DownPercent > 0 {
 			downPayment = req.Price * (req.DownPercent / 100)
 		} else {
-			downPayment = req.Price * 0.1
+			downPayment = req.Price * 0.2 // Default to 20% minimum
+		}
+		// Ensure minimum 20% down payment
+		minDownPayment := req.Price * 0.2
+		if downPayment < minDownPayment {
+			downPayment = minDownPayment
 		}
 	}
 
-	// 💰 Финансируемая часть (сумма к рассрочке)
-	financed := req.Price - downPayment
-
-	// 📈 Расчёт по принципу исламской рассрочки:
-	// цена = себестоимость + фиксированная торговая наценка
-	totalMarkup := financed * (tradeMarkupPercent / 100)
-	total := financed + totalMarkup
-	monthly := total / float64(req.Term)
+	// 💳 Расчёты
+	// Apply markup to the full product price, not just financed amount
+	totalWithMarkup := req.Price * (1 + baseRate/100)
+	totalMarkup := totalWithMarkup - req.Price
+	financedAmount := totalWithMarkup - downPayment
+	monthly := financedAmount / float64(req.Term)
 
 	return CalcResponse{
-		EffectiveRate:  tradeMarkupPercent,           // просто процент торговой надбавки
-		MonthlyPayment: math.Round(monthly),          // равные доли, без процентов
-		Total:          math.Round(total + downPayment), // добавляем взнос для общей суммы
+		EffectiveRate:  baseRate,
+		MonthlyPayment: math.Round(monthly),
+		Total:          math.Round(totalWithMarkup),
 		TotalMarkup:    math.Round(totalMarkup),
 		DownPayment:    math.Round(downPayment),
 	}, nil
@@ -76,7 +79,9 @@ func limits(guarantor, down bool) (float64, int, error) {
 	case guarantor && !down:
 		return 100000, 10, nil
 	case guarantor && down:
-		return 150000, 10, nil
+		// С поручителем и взносом — до 200 000 ₽ и 10 мес
+		return 200000, 10, nil
+
 	default:
 		return 0, 0, errors.New("некорректное сочетание параметров")
 	}
