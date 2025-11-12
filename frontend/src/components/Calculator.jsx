@@ -397,8 +397,9 @@ export default function Calculator() {
         .option-button {
           display: inline-flex;
           align-items: center;
-          gap: 8px;
-          padding: 12px 20px;
+          justify-content: center;
+          gap: 6px;
+          padding: 10px 12px;
           height: 48px;
           border-radius: 12px;
           border: 1px solid #e5e7eb;
@@ -408,6 +409,15 @@ export default function Calculator() {
           cursor: pointer;
           transition: all 0.2s ease;
           user-select: none;
+          text-align: center;
+          font-size: 14px;
+        }
+        @media (min-width: 768px) {
+          .option-button {
+            gap: 8px;
+            padding: 12px 20px;
+            font-size: 16px;
+          }
         }
         .option-button:hover {
           border-color: #d1d5db;
@@ -464,7 +474,7 @@ export default function Calculator() {
         </div>
 
         {/* селекторы опций */}
-        <div className="flex flex-wrap gap-3 mb-8">
+        <div className="grid grid-cols-2 gap-3 mb-8 sm:flex sm:flex-wrap">
           <button
             onClick={() => handleDownToggle(!hasDown)}
             className={`option-button ${hasDown ? 'active' : ''}`}
