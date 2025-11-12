@@ -4,7 +4,7 @@ import Header from "./components/Header.jsx";
 import HomePage from "./components/HomePage.jsx";
 import Calculator from "./components/Calculator.jsx";
 import ClientSearch from "./components/ClientSearch.jsx";
-import FloatingWhatsAppButton from "./components/FloatingWhatsAppButton.jsx"; // ✅ без {}
+
 
 export default function App() {
   return (
@@ -16,8 +16,7 @@ export default function App() {
         <Route path="/check" element={<ClientSearch />} />
       </Routes>
 
-      {/* плавающая кнопка */}
-      <FloatingWhatsAppButton />
+
     </Router>
   );
 }
