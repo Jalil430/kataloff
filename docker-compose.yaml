@@ -12,26 +12,18 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./backend/database.sql:/docker-entrypoint-initdb.d/database.sql
-    ports:
-      - "5432:5432"
     networks:
       - kataloff-net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d murabaha"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
 
   backend:
     build: ./backend
     container_name: murabaha_backend
     depends_on:
-      db:
-        condition: service_healthy
+      - db
     env_file:
       - ./backend/.env
     ports:
-      - "8080:8080"   # бэкенд наружу на 8080
+      - "8080:8080"
     networks:
       - kataloff-net
     restart: always
@@ -42,7 +34,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "3000:80"     # фронт внутри на 80, снаружи на 3000
+      - "3000:80"      # <-- не конфликтует с Nginx
     networks:
       - kataloff-net
     restart: always

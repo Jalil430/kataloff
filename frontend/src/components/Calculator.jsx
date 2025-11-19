@@ -40,7 +40,7 @@ export default function Calculator() {
 
   const showNotify = (msg) => {
     setNotify(msg);
-    setTimeout(() => setNotify(""), 2600);
+    setTimeout(() => setNotify(""), 5600);
   };
 
   /* динамический потолок цены */
@@ -342,11 +342,31 @@ export default function Calculator() {
   return (
     <div className="min-h-[calc(100vh-80px)] bg-[#f6f7fb]">
       {/* Toast уведомление */}
-      {notify && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-[#043c6f] text-white px-6 py-3 rounded-xl shadow-lg text-center z-[9999] whitespace-pre-line">
-          {notify}
-        </div>
-      )}
+{notify && (
+  <div
+    className="
+      fixed top-4 left-1/2 -translate-x-1/2
+      bg-white text-[#223042]
+      px-4 py-3
+      rounded-xl shadow-xl
+      font-medium text-center
+      z-[9999]
+      transition-all duration-300
+      animate-toastIn
+
+      w-[90%] max-w-[360px]   /* Адаптивность */
+    "
+  >
+    {notify}
+
+    {/* Progress Line */}
+    <div className="w-full h-1 bg-gray-200 rounded-full mt-3 overflow-hidden">
+      <div
+        className="h-full bg-[#e60606] animate-toastProgress"
+      ></div>
+    </div>
+  </div>
+)}
 
       <style>{`
         .sber-range {
