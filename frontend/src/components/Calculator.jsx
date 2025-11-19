@@ -37,10 +37,21 @@ export default function Calculator() {
 
   /* уведомление */
   const [notify, setNotify] = useState("");
+  const notifyTimeoutRef = useRef(null);
 
-  const showNotify = (msg) => {
+  const showNotify = useCallback((msg) => {
     setNotify(msg);
-    setTimeout(() => setNotify(""), 5600);
+    if (notifyTimeoutRef.current) clearTimeout(notifyTimeoutRef.current);
+    // 4.6 секунды показа
+    notifyTimeoutRef.current = setTimeout(() => setNotify(""), 4600);
+  }, []);
+
+  /* таймер проверки взноса */
+  const downTimeoutRef = useRef(null);
+
+  const scheduleDownValidation = (callback) => {
+    if (downTimeoutRef.current) clearTimeout(downTimeoutRef.current);
+    downTimeoutRef.current = setTimeout(callback, 3000); // 3 сек после ввода
   };
 
   /* динамический потолок цены */
@@ -70,6 +81,18 @@ export default function Calculator() {
   const [downInputValue, setDownInputValue] = useState("0");
   const [downPercent, setDownPercent] = useState(0);
 
+  // refs для корректной работы таймера проверки
+  const priceRef = useRef(price);
+  const downPaymentRef = useRef(downPayment);
+
+  useEffect(() => {
+    priceRef.current = price;
+  }, [price]);
+
+  useEffect(() => {
+    downPaymentRef.current = downPayment;
+  }, [downPayment]);
+
   /* расчёт/WA */
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -82,9 +105,17 @@ export default function Calculator() {
   const [clientName, setClientName] = useState("");
   const [productName, setProductName] = useState("");
 
+  /** ===== очистка таймеров при размонтировании ===== */
+  useEffect(() => {
+    return () => {
+      if (downTimeoutRef.current) clearTimeout(downTimeoutRef.current);
+      if (notifyTimeoutRef.current) clearTimeout(notifyTimeoutRef.current);
+    };
+  }, []);
+
   /** ===== загрузка WA ===== */
   useEffect(() => {
-    getWhatsAppNumber().then(setWa).catch(() => { });
+    getWhatsAppNumber().then(setWa).catch(() => {});
   }, []);
 
   /** ===== проценты взноса (живые) ===== */
@@ -142,7 +173,7 @@ export default function Calculator() {
 
     if (hasDown) {
       const minDown = Math.round(clamped * 0.2);
-      if (downPayment < minDown) {
+      if (downPaymentRef.current < minDown) {
         setDownPayment(minDown);
         setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
       }
@@ -156,7 +187,7 @@ export default function Calculator() {
 
     if (hasDown) {
       const minDown = Math.round(n * 0.2);
-      if (downPayment < minDown) {
+      if (downPaymentRef.current < minDown) {
         setDownPayment(minDown);
         setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
       }
@@ -196,7 +227,7 @@ export default function Calculator() {
       num = 3;
     } else if (num > maxTerm) {
       showNotify(
-        `С вашими условиями доступно максимум ${maxTerm} месяцев.\nДля увеличения срока включите поручителя / первый взнос.`
+        `С вашими условииям доступно максимум ${maxTerm} месяцев.\nДля увеличения срока включите поручителя / первый взнос.`
       );
       num = maxTerm;
     }
@@ -211,34 +242,70 @@ export default function Calculator() {
     setTermInputValue(n.toString());
   };
 
-  /** ===== обработчики взноса ===== */
+  /** ===== проверка минимального взноса (20%) ===== */
+  const validateDownPayment = () => {
+    if (!hasDown) return;
+
+    const priceNow = priceRef.current;
+    const dpNow = downPaymentRef.current;
+
+    if (priceNow <= 0) return;
+
+    const minDown = Math.round(priceNow * 0.2);
+
+    if (dpNow < minDown) {
+      setDownPayment(minDown);
+      setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
+      showNotify("Минимальный первоначальный взнос — 20% от стоимости");
+    }
+  };
+
+  /** ===== обработчики взноса (₽) ===== */
   const handleDownInput = (val) => {
-    const cleanVal = val.replace(/[^0-9\s]/g, "");
-    const displayVal = cleanVal === "" ? "0" : cleanVal;
-    setDownInputValue(displayVal);
+    if (!hasDown) return;
 
-    const numericValue = toNumber(displayVal);
-    if (numericValue >= 0) {
-      setDownPayment(numericValue);
+    const clean = val.replace(/[^0-9]/g, "");
+    setDownInputValue(clean);
+
+    if (clean !== "") {
+      setDownPayment(Number(clean));
     }
+
+    // Проверка через 3 секунды после последнего ввода
+    scheduleDownValidation(validateDownPayment);
   };
 
-  const handleDownSlider = (val) => {
-    const minDown = Math.round(price * 0.2);
-    const n = clamp(Number(val), minDown, price);
-    setDownPayment(n);
-    setDownInputValue(new Intl.NumberFormat("ru-RU").format(n));
-  };
-
+  /** ===== обработчик процентов (%) ===== */
   const handleDownPercentInput = (val) => {
-    const numericValue = Number(val) || 0;
-    if (numericValue >= 0) {
-      const rubleValue = Math.round((price * numericValue) / 100);
-      setDownPayment(rubleValue);
-      setDownInputValue(new Intl.NumberFormat("ru-RU").format(rubleValue));
+    if (!hasDown) return;
+
+    const clean = val.replace(/[^0-9]/g, "");
+    setDownPercent(clean);
+
+    if (clean !== "") {
+      const p = Number(clean);
+      const rub = Math.round((priceRef.current * p) / 100);
+      setDownPayment(rub);
+      setDownInputValue(new Intl.NumberFormat("ru-RU").format(rub));
     }
+
+    // debounce 3 сек
+    if (downTimeoutRef.current) clearTimeout(downTimeoutRef.current);
+
+    downTimeoutRef.current = setTimeout(() => {
+      const p = Number(clean);
+      if (p < 20) {
+        const pp = 20;
+        const rub = Math.round((priceRef.current * pp) / 100);
+        setDownPercent(pp);
+        setDownPayment(rub);
+        setDownInputValue(new Intl.NumberFormat("ru-RU").format(rub));
+        showNotify("Минимальный первоначальный взнос — 20%");
+      }
+    }, 3000);
   };
 
+  /** ===== переключатели ===== */
   const handleGuarantorChange = (checked) => {
     setHasGuarantor(checked);
   };
@@ -248,14 +315,17 @@ export default function Calculator() {
     if (!checked) {
       setDownPayment(0);
       setDownInputValue("0");
+      setDownPercent(0);
+      if (downTimeoutRef.current) clearTimeout(downTimeoutRef.current);
     } else {
-      const minDown = Math.round(price * 0.2);
+      const minDown = Math.round(priceRef.current * 0.2);
       setDownPayment(minDown);
       setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
+      setDownPercent(20);
     }
   };
 
-  /** ===== запрос расчёта (анти-гонки) ===== */
+  /** ===== запрос расчёта ===== */
   const doCalc = useCallback(async () => {
     const reqId = ++lastReqId.current;
     setError("");
@@ -341,32 +411,27 @@ export default function Calculator() {
 
   return (
     <div className="min-h-[calc(100vh-80px)] bg-[#f6f7fb]">
-      {/* Toast уведомление */}
-{notify && (
-  <div
-    className="
-      fixed top-4 left-1/2 -translate-x-1/2
-      bg-white text-[#223042]
-      px-4 py-3
-      rounded-xl shadow-xl
-      font-medium text-center
-      z-[9999]
-      transition-all duration-300
-      animate-toastIn
 
-      w-[90%] max-w-[360px]   /* Адаптивность */
-    "
-  >
-    {notify}
-
-    {/* Progress Line */}
-    <div className="w-full h-1 bg-gray-200 rounded-full mt-3 overflow-hidden">
-      <div
-        className="h-full bg-[#e60606] animate-toastProgress"
-      ></div>
-    </div>
-  </div>
-)}
+      {/* ===== NOTIFY (общий для месяцев и взноса) ===== */}
+      {notify && (
+        <div
+          className="
+            fixed top-4 left-1/2 -translate-x-1/2
+            bg-white text-[#223042]
+            px-4 py-3
+            rounded-xl shadow-xl
+            font-medium text-center
+            z-[9999]
+            animate-toastIn
+            w-[90%] max-w-[360px]
+          "
+        >
+          {notify}
+          <div className="w-full h-1 bg-gray-200 rounded-full mt-3 overflow-hidden">
+            <div className="h-full bg-[#e60606] animate-toastProgress"></div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         .sber-range {
@@ -786,67 +851,32 @@ export default function Calculator() {
             </section>
 
             {/* Первый взнос */}
-            <section
-              className={`mb-8 ${!hasDown ? "section-disabled" : ""}`}
-            >
+            <section className={`mb-8 ${!hasDown ? "section-disabled" : ""}`}>
               <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
                 <h3 className="text-lg font-semibold text-[#223042] mb-2 md:mb-0">
                   Первоначальный взнос
                 </h3>
+
                 <div className="flex items-center gap-3 w-full container-fixed-desktop">
+                  {/* ==== ₽ ручной ввод ==== */}
                   <input
                     type="text"
                     value={hasDown ? downInputValue : "0"}
-                    onChange={
-                      hasDown
-                        ? (e) => handleDownInput(e.target.value)
-                        : undefined
-                    }
-                    onBlur={
-                      hasDown
-                        ? () => {
-                          const minDown = Math.round(price * 0.2);
-                          const clampedValue = clamp(
-                            toNumber(downInputValue),
-                            minDown,
-                            price
-                          );
-                          const formattedValue =
-                            new Intl.NumberFormat("ru-RU").format(
-                              clampedValue
-                            );
-                          setDownInputValue(formattedValue);
-                          setDownPayment(clampedValue);
-                        }
-                        : undefined
-                    }
-                    onKeyDown={
-                      hasDown
-                        ? (e) => {
-                          if (e.key === "Enter") {
-                            const minDown = Math.round(price * 0.2);
-                            const clampedValue = clamp(
-                              toNumber(downInputValue),
-                              minDown,
-                              price
-                            );
-                            const formattedValue =
-                              new Intl.NumberFormat("ru-RU").format(
-                                clampedValue
-                              );
-                            setDownInputValue(formattedValue);
-                            setDownPayment(clampedValue);
-                            e.target.blur();
-                          }
-                        }
-                        : undefined
-                    }
+                    onFocus={() => {
+                      if (!hasDown) return;
+                      if (downInputValue === "0" || downInputValue === "0 ₽") {
+                        setDownInputValue("");
+                      }
+                    }}
+                    onChange={(e) => handleDownInput(e.target.value)}
                     className="pill-input flex-1"
                     style={{ flexBasis: "60%" }}
                     placeholder={hasDown ? "Введите сумму" : "0 ₽"}
                     disabled={!hasDown}
                     readOnly={!hasDown}
                   />
+
+                  {/* ==== % ввод ==== */}
                   <div
                     className="relative flex-1"
                     style={{ flexBasis: "40%" }}
@@ -854,60 +884,11 @@ export default function Calculator() {
                     <input
                       type="text"
                       value={hasDown ? downPercent : "0"}
-                      onChange={
-                        hasDown
-                          ? (e) => {
-                            const val = e.target.value.replace(
-                              /[^0-9]/g,
-                              ""
-                            );
-                            handleDownPercentInput(val);
-                          }
-                          : undefined
-                      }
-                      onBlur={
-                        hasDown
-                          ? () => {
-                            const clampedPercent = clamp(
-                              Number(downPercent) || 20,
-                              20,
-                              100
-                            );
-                            const rubleValue = Math.round(
-                              (price * clampedPercent) / 100
-                            );
-                            setDownPayment(rubleValue);
-                            setDownInputValue(
-                              new Intl.NumberFormat("ru-RU").format(
-                                rubleValue
-                              )
-                            );
-                          }
-                          : undefined
-                      }
-                      onKeyDown={
-                        hasDown
-                          ? (e) => {
-                            if (e.key === "Enter") {
-                              const clampedPercent = clamp(
-                                Number(downPercent) || 20,
-                                20,
-                                100
-                              );
-                              const rubleValue = Math.round(
-                                (price * clampedPercent) / 100
-                              );
-                              setDownPayment(rubleValue);
-                              setDownInputValue(
-                                new Intl.NumberFormat("ru-RU").format(
-                                  rubleValue
-                                )
-                              );
-                              e.target.blur();
-                            }
-                          }
-                          : undefined
-                      }
+                      onFocus={() => {
+                        if (!hasDown) return;
+                        if (downPercent === 0) setDownPercent("");
+                      }}
+                      onChange={(e) => handleDownPercentInput(e.target.value)}
                       className="pill-input-percent-small w-full"
                       placeholder={hasDown ? "0" : "0"}
                       disabled={!hasDown}
@@ -920,6 +901,7 @@ export default function Calculator() {
                 </div>
               </div>
 
+              {/* ===== Слайдер ===== */}
               <div className="mb-4">
                 <input
                   className="sber-range marks-4"
@@ -930,25 +912,34 @@ export default function Calculator() {
                   value={
                     hasDown
                       ? clamp(
-                        downPayment,
-                        Math.round(price * 0.2),
-                        price
-                      )
+                          downPayment,
+                          Math.round(price * 0.2),
+                          price
+                        )
                       : Math.round(price * 0.2)
                   }
                   onChange={(e) => {
-                    handleDownSlider(e.target.value);
+                    if (!hasDown) return;
+
+                    const val = Number(e.target.value);
+                    setDownPayment(val);
+                    setDownPercent(Math.round((val / priceRef.current) * 100));
+                    setDownInputValue(
+                      new Intl.NumberFormat("ru-RU").format(val)
+                    );
+
                     updateSliderFill(
                       e.target,
-                      e.target.value,
-                      Math.round(price * 0.2),
-                      price
+                      val,
+                      Math.round(priceRef.current * 0.2),
+                      priceRef.current
                     );
                   }}
                   disabled={!hasDown}
                 />
               </div>
 
+              {/* ===== деления ===== */}
               <div className="relative mx-6 overflow-visible">
                 <div className="relative w-full">
                   <span
@@ -960,24 +951,20 @@ export default function Calculator() {
                     )}{" "}
                     ₽
                   </span>
+
                   <span
                     className="absolute text-gray-500 text-sm whitespace-nowrap"
-                    style={{
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                    }}
+                    style={{ left: "50%", transform: "translateX(-50%)" }}
                   >
                     {new Intl.NumberFormat("ru-RU").format(
                       Math.round(price * 0.6)
                     )}{" "}
                     ₽
                   </span>
+
                   <span
                     className="absolute text-gray-500 text-sm whitespace-nowrap"
-                    style={{
-                      left: "100%",
-                      transform: "translateX(-100%)",
-                    }}
+                    style={{ left: "100%", transform: "translateX(-100%)" }}
                   >
                     {new Intl.NumberFormat("ru-RU").format(price)} ₽
                   </span>
@@ -1026,8 +1013,9 @@ export default function Calculator() {
 
             {/* карточка с расчётом */}
             <div
-              className={`relative bg-white rounded-2xl shadow-sm border border-gray-200 p-5 ${loading ? "opacity-80" : ""
-                }`}
+              className={`relative bg-white rounded-2xl shadow-sm border border-gray-200 p-5 ${
+                loading ? "opacity-80" : ""
+              }`}
             >
               {/* Loading Overlay */}
               {loading && (
@@ -1062,28 +1050,29 @@ export default function Calculator() {
               <button
                 onClick={() => setModalOpen(true)}
                 disabled={loading || !data}
-                className={`w-full rounded-full py-3 font-semibold transition shadow-sm mb-3 ${loading || !data
-                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  : "text-white"
-                  }`}
+                className={`w-full rounded-full py-3 font-semibold transition shadow-sm mb-3 ${
+                  loading || !data
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    : "text-white"
+                }`}
                 style={
                   loading || !data
                     ? {}
                     : {
-                      background: `linear-gradient(135deg, ${LOGO_BLUE} 0%, ${LOGO_GREEN} 100%)`,
-                    }
+                        background: `linear-gradient(135deg, ${LOGO_BLUE} 0%, ${LOGO_GREEN} 100%)`,
+                      }
                 }
                 onMouseOver={
                   loading || !data
                     ? undefined
                     : (e) =>
-                      (e.currentTarget.style.background = `linear-gradient(135deg, ${LOGO_BLUE_HOVER} 0%, #5BA394 100%)`)
+                        (e.currentTarget.style.background = `linear-gradient(135deg, ${LOGO_BLUE_HOVER} 0%, #5BA394 100%)`)
                 }
                 onMouseOut={
                   loading || !data
                     ? undefined
                     : (e) =>
-                      (e.currentTarget.style.background = `linear-gradient(135deg, ${LOGO_BLUE} 0%, ${LOGO_GREEN} 100%)`)
+                        (e.currentTarget.style.background = `linear-gradient(135deg, ${LOGO_BLUE} 0%, ${LOGO_GREEN} 100%)`)
                 }
               >
                 {loading ? "Расчёт..." : "Оформить рассрочку"}
