@@ -31,7 +31,7 @@ services:
     env_file:
       - ./backend/.env
     ports:
-      - "8080:8080"
+      - "8080:8080"   # бэкенд наружу на 8080
     networks:
       - kataloff-net
     restart: always
@@ -42,10 +42,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - "3000:80"     # фронт внутри на 80, снаружи на 3000
     networks:
       - kataloff-net
     restart: always
