@@ -12,21 +12,25 @@ export default function ClientSearch() {
   const API_URL = import.meta.env.VITE_API_URL;
   const TOKEN = import.meta.env.VITE_API_TOKEN;
 
+  // === НОРМАЛИЗАЦИЯ ПРОБЕЛОВ ===
+  const normalizeWhitespace = (str) => {
+    return str.replace(/\s+/g, " ").trim();
+  };
+
+  // === ПОИСК РАССРОЧКИ ===
   const searchInstallments = async () => {
-    console.log("Search started"); // Debug log
     setLoading(true);
     setError("");
     setData(null);
-    setOpenIndexes(new Set()); // Reset expanded items
+    setOpenIndexes(new Set());
 
     try {
-      const url = `${API_URL}/installments/search?installment_number=${encodeURIComponent(
-        installmentNumber
-      )}&client_name=${encodeURIComponent(fio)}`;
+      const fioNormalized = normalizeWhitespace(fio);
+      const numberNormalized = installmentNumber.trim();
 
-      console.log("API URL:", url); // Debug log
-      console.log("API_URL:", API_URL); // Debug log
-      console.log("TOKEN:", TOKEN ? "Present" : "Missing"); // Debug log
+      const url = `${API_URL}/installments/search?installment_number=${encodeURIComponent(
+        numberNormalized
+      )}&client_name=${encodeURIComponent(fioNormalized)}`;
 
       const res = await fetch(url, {
         headers: {
@@ -35,66 +39,56 @@ export default function ClientSearch() {
         },
       });
 
-      console.log("Response status:", res.status); // Debug log
-      console.log("Response ok:", res.ok); // Debug log
-
       if (!res.ok) {
-        const errorText = await res.text();
-        console.log("Error response:", errorText); // Debug log
-        
-        // Localize error messages based on status code
         let localizedError;
         if (res.status === 404) {
-          localizedError = "Рассрочка не найдена. Проверьте номер рассрочки и ФИО клиента.";
+          localizedError =
+            "Рассрочка не найдена. Проверьте номер рассрочки и ФИО клиента.";
         } else if (res.status === 400) {
-          localizedError = "Неверные данные. Проверьте правильность введенной информации.";
+          localizedError =
+            "Неверные данные. Проверьте правильность введенной информации.";
         } else if (res.status === 401) {
           localizedError = "Ошибка авторизации. Обратитесь к администратору.";
         } else if (res.status === 500) {
-          localizedError = "Ошибка сервера. Попробуйте позже или обратитесь в поддержку.";
+          localizedError = "Ошибка сервера. Попробуйте позже.";
         } else {
-          localizedError = "Не удалось получить данные. Проверьте введенную информацию.";
+          localizedError =
+            "Не удалось получить данные. Проверьте введенную информацию.";
         }
-        
+
         throw new Error(localizedError);
       }
 
       const json = await res.json();
-      console.log("API Response:", json); // Debug log
-      
       if (!json || !json.installments || json.installments.length === 0)
         throw new Error("Рассрочки не найдены для указанного клиента");
 
-      console.log("Setting data:", json); // Debug log
       setData(json);
     } catch (e) {
-      console.error("Ошибка запроса:", e);
-      console.error("Error stack:", e.stack); // More detailed error info
-      setError(e.message || "Произошла неизвестная ошибка");
+      setError(e.message || "Произошла ошибка");
     } finally {
-      console.log("Search completed"); // Debug log
       setLoading(false);
     }
   };
 
+  // === СТИЛИ ДЛЯ СТАТУСОВ ===
   const getStatusStyle = (status) => {
-    const lower = status.toLowerCase();
-    if (lower.includes("оплачен")) return "bg-green-50 text-green-600 border border-green-200";
-    if (lower.includes("предстоящ")) return "bg-[#E3F2FD] text-[#42A5F5] border border-[#BBDEFB]";
-    if (lower.includes("просроч")) return "bg-red-50 text-red-600 border border-red-200";
-    if (lower.includes("сегодня")) return "bg-orange-50 text-orange-600 border border-orange-200";
-    return "bg-gray-50 text-gray-600 border border-gray-200";
+    const s = status.toLowerCase().trim();
+
+    if (s.includes("оплач")) return "bg-green-100 text-green-700 border border-green-300";
+    if (s.includes("просроч")) return "bg-red-100 text-red-700 border border-red-300";
+    if (s.includes("к оплате")) return "bg-orange-100 text-orange-700 border border-orange-300";
+    if (s.includes("предстоящ") || s.includes("текущ"))
+      return "bg-blue-100 text-blue-700 border border-blue-300";
+
+    return "bg-gray-100 text-gray-600 border border-gray-300";
   };
 
-  const capitalizeFirst = (str) => {
-    return str.charAt(0).toUpperCase() + str.slice(1);
-  };
+  const capitalizeFirst = (str) =>
+    str.charAt(0).toUpperCase() + str.slice(1);
 
   const getPaymentName = (payment, index) => {
-    // Check if it's a down payment (usually payment_number 0 or first payment with different characteristics)
-    if (payment.payment_number === 0 || (index === 0 && payment.expected_amount > payment.expected_amount * 1.5)) {
-      return "Первый взнос";
-    }
+    if (payment.payment_number === 0) return "Первый взнос";
     return `Месяц ${payment.payment_number}`;
   };
 
@@ -122,43 +116,36 @@ export default function ClientSearch() {
           </h1>
         </div>
 
-        {/* Search Card */}
+        {/* SEARCH CARD */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
-          <h3 className="text-lg font-semibold text-[#223042] mb-4">Поиск рассрочек</h3>
-          
-          <style>{`
-            .no-arrows::-webkit-outer-spin-button,
-            .no-arrows::-webkit-inner-spin-button {
-              -webkit-appearance: none;
-              margin: 0;
-            }
-            .no-arrows {
-              -moz-appearance: textfield;
-            }
-          `}</style>
-          
+          <h3 className="text-lg font-semibold text-[#223042] mb-4">
+            Поиск рассрочек
+          </h3>
+
           <div className="flex flex-col md:flex-row gap-4 mb-4">
             <input
               type="text"
               placeholder="Фамилия Имя Отчество"
               value={fio}
               onChange={(e) => setFio(e.target.value)}
-              className="flex-1 p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#2d9f8a] focus:border-[#2d9f8a] outline-none transition-colors"
+              className="flex-1 p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#2d9f8a]"
             />
+
             <input
               type="number"
               placeholder="Номер рассрочки"
               value={installmentNumber}
               onChange={(e) => setInstallmentNumber(e.target.value)}
-              className="flex-1 p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#2d9f8a] focus:border-[#2d9f8a] outline-none transition-colors no-arrows"
+              className="flex-1 no-arrows p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#2d9f8a]"
             />
+
             <button
               onClick={searchInstallments}
               disabled={loading || !fio || !installmentNumber}
-              className={`px-10 py-3 rounded-full font-semibold transition-all duration-200 whitespace-nowrap min-w-[120px] ${
+              className={`px-10 py-3 rounded-full font-semibold transition-all ${
                 loading || !fio || !installmentNumber
-                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  : "bg-gradient-to-r from-[#043c6f] to-[#5bc5a7] text-white hover:shadow-lg transform hover:scale-105"
+                  ? "bg-gray-300 text-gray-500"
+                  : "bg-gradient-to-r from-[#043c6f] to-[#5bc5a7] text-white hover:scale-105"
               }`}
             >
               {loading ? "Поиск..." : "Найти"}
@@ -172,253 +159,371 @@ export default function ClientSearch() {
           )}
         </div>
 
+        {/* ===== PART 2 — вставляй следующую часть сюда */}
+
         {/* Client Info Card */}
+        {/* CLIENT INFO CARD */}
         {data && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
-            <h3 className="text-lg font-semibold text-[#223042] mb-4">Информация о клиенте</h3>
-            
+            <h3 className="text-lg font-semibold text-[#223042] mb-4">
+              Информация о клиенте
+            </h3>
+
             <div className="grid grid-cols-2 md:grid-cols-15 gap-6 text-sm">
               <div className="flex flex-col md:col-span-5">
                 <span className="text-gray-500">Имя:</span>
-                <span className="font-semibold text-[#223042] text-base">{data.client.name}</span>
+                <span className="font-semibold text-[#223042] text-base">
+                  {data.client.name}
+                </span>
               </div>
+
               <div className="flex flex-col md:col-span-2">
                 <span className="text-gray-500">Найденная рассрочка:</span>
-                <span className="font-semibold text-[#223042] text-base">№ {data.client.searched_installment_number}</span>
+                <span className="font-semibold text-[#223042] text-base">
+                  № {data.client.searched_installment_number}
+                </span>
               </div>
+
               <div className="flex flex-col md:col-span-2">
                 <span className="text-gray-500">Всего рассрочек:</span>
-                <span className="font-semibold text-[#223042] text-base">{data.summary.total_installments}</span>
+                <span className="font-semibold text-[#223042] text-base">
+                  {data.summary.total_installments}
+                </span>
               </div>
+
               <div className="flex flex-col md:col-span-2">
                 <span className="text-gray-500">Оплачено:</span>
-                <span className="font-semibold text-[#223042] text-base">{formatCurrency(data.summary.total_paid)}</span>
+                <span className="font-semibold text-[#223042] text-base">
+                  {formatCurrency(data.summary.total_paid)}
+                </span>
               </div>
+
               <div className="flex flex-col md:col-span-2">
                 <span className="text-gray-500">Остаток:</span>
-                <span className="font-semibold text-[#223042] text-base">{formatCurrency(data.summary.total_remaining)}</span>
+                <span className="font-semibold text-[#223042] text-base">
+                  {formatCurrency(data.summary.total_remaining)}
+                </span>
               </div>
+
               <div className="flex flex-col md:col-span-2">
                 <span className="text-gray-500">Просрочено:</span>
-                <span className="font-semibold text-[#223042] text-base">{formatCurrency(data.summary.total_overdue)}</span>
+                <span className="font-semibold text-[#223042] text-base">
+                  {formatCurrency(data.summary.total_overdue)}
+                </span>
               </div>
             </div>
           </div>
         )}
 
-        {/* Installment Cards */}
-        {data && data.installments && Array.isArray(data.installments) && data.installments.map((inst, i) => (
-          <div key={i} className="bg-white rounded-2xl shadow-sm border border-gray-200 mb-4">
-            {/* Desktop Installment Header */}
-            <div className="hidden md:block">
-              <div
-                onClick={() => {
-                  const newOpenIndexes = new Set(openIndexes);
-                  if (newOpenIndexes.has(i)) {
-                    newOpenIndexes.delete(i);
-                  } else {
-                    newOpenIndexes.add(i);
-                  }
-                  setOpenIndexes(newOpenIndexes);
-                }}
-                className="flex items-center justify-between p-6 cursor-pointer hover:bg-gray-50 transition-colors rounded-2xl"
-              >
-                <div className="flex-1">
-                  <h4 className="text-lg font-semibold text-[#223042] mb-1">
-                    {inst.product_name}
-                  </h4>
-                </div>
+        {/* INSTALLMENT CARDS */}
+        {data &&
+          data.installments &&
+          Array.isArray(data.installments) &&
+          data.installments.map((inst, i) => (
+            <div
+              key={i}
+              className="bg-white rounded-2xl shadow-sm border border-gray-200 mb-4"
+            >
+              {/* DESKTOP HEADER */}
+              <div className="hidden md:block">
+                <div
+                  onClick={() => {
+                    const newSet = new Set(openIndexes);
+                    newSet.has(i) ? newSet.delete(i) : newSet.add(i);
+                    setOpenIndexes(newSet);
+                  }}
+                  className="flex items-center justify-between p-6 cursor-pointer hover:bg-gray-50 transition-colors rounded-2xl"
+                >
+                  <div className="flex-1">
+                    <h4 className="text-lg font-semibold text-[#223042] mb-1">
+                      {inst.product_name}
+                    </h4>
+                  </div>
 
-                <div className="flex items-center justify-between w-full max-w-2xl text-sm">
-                  <div className="text-left">
-                    <div className="font-semibold text-[#223042]">№ {inst.installment_number}</div>
-                    <div className="text-gray-500">Договор</div>
-                  </div>
-                  <div className="text-left">
-                    <div className="font-semibold text-[#223042]">{inst.term_months} мес.</div>
-                    <div className="text-gray-500">Срок</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-semibold text-[#223042]">{formatCurrency(inst.installment_price)}</div>
-                    <div className="text-gray-500">Стоимость</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-semibold text-[#223042]">{formatCurrency(inst.remaining_amount)}</div>
-                    <div className="text-gray-500">Остаток</div>
-                  </div>
-                  <span className={`px-3 py-1.5 rounded-lg text-xs font-normal w-28 text-center ${getStatusStyle(inst.payment_status)}`}>
-                    {capitalizeFirst(inst.payment_status)}
-                  </span>
-                  <div className="text-[#2d9f8a]">
-                    <svg 
-                      className={`w-5 h-5 transition-transform ${openIndexes.has(i) ? 'rotate-180' : ''}`} 
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
+                  <div className="flex items-center justify-between w-full max-w-2xl text-sm">
+                    <div className="text-left">
+                      <div className="font-semibold text-[#223042]">
+                        № {inst.installment_number}
+                      </div>
+                      <div className="text-gray-500">Договор</div>
+                    </div>
+
+                    <div className="text-left">
+                      <div className="font-semibold text-[#223042]">
+                        {inst.term_months} мес.
+                      </div>
+                      <div className="text-gray-500">Срок</div>
+                    </div>
+
+                    <div className="text-right">
+                      <div className="font-semibold text-[#223042]">
+                        {formatCurrency(inst.installment_price)}
+                      </div>
+                      <div className="text-gray-500">Стоимость</div>
+                    </div>
+
+                    <div className="text-right">
+                      <div className="font-semibold text-[#223042]">
+                        {formatCurrency(inst.remaining_amount)}
+                      </div>
+                      <div className="text-gray-500">Остаток</div>
+                    </div>
+
+                    <span
+                      className={`px-3 py-1.5 rounded-lg text-xs font-normal w-28 text-center ${getStatusStyle(
+                        inst.payment_status
+                      )}`}
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Mobile Installment Header */}
-            <div className="md:hidden">
-              <div
-                onClick={() => {
-                  const newOpenIndexes = new Set(openIndexes);
-                  if (newOpenIndexes.has(i)) {
-                    newOpenIndexes.delete(i);
-                  } else {
-                    newOpenIndexes.add(i);
-                  }
-                  setOpenIndexes(newOpenIndexes);
-                }}
-                className="p-4 cursor-pointer hover:bg-gray-50 transition-colors rounded-2xl"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <h4 className="text-lg font-semibold text-[#223042] flex-1 pr-4">
-                    {inst.product_name}
-                  </h4>
-                  <div className="flex items-center gap-2">
-                    <span className={`px-2 py-1 rounded-lg text-xs font-normal ${getStatusStyle(inst.payment_status)}`}>
                       {capitalizeFirst(inst.payment_status)}
                     </span>
+
                     <div className="text-[#2d9f8a]">
-                      <svg 
-                        className={`w-5 h-5 transition-transform ${openIndexes.has(i) ? 'rotate-180' : ''}`} 
-                        fill="none" 
-                        stroke="currentColor" 
+                      <svg
+                        className={`w-5 h-5 transition-transform ${
+                          openIndexes.has(i) ? "rotate-180" : ""
+                        }`}
+                        fill="none"
+                        stroke="currentColor"
                         viewBox="0 0 24 24"
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
                       </svg>
                     </div>
                   </div>
                 </div>
-                
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <span className="text-gray-500">Договор:</span>
-                    <span className="font-semibold text-[#223042] ml-1">№ {inst.installment_number}</span>
+              </div>
+
+              {/* MOBILE HEADER */}
+              <div className="md:hidden">
+                <div
+                  onClick={() => {
+                    const newSet = new Set(openIndexes);
+                    newSet.has(i) ? newSet.delete(i) : newSet.add(i);
+                    setOpenIndexes(newSet);
+                  }}
+                  className="p-4 cursor-pointer hover:bg-gray-50 transition-colors rounded-2xl"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <h4 className="text-lg font-semibold text-[#223042] flex-1 pr-4">
+                      {inst.product_name}
+                    </h4>
+
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`px-2 py-1 rounded-lg text-xs font-normal ${getStatusStyle(
+                          inst.payment_status
+                        )}`}
+                      >
+                        {capitalizeFirst(inst.payment_status)}
+                      </span>
+
+                      <svg
+                        className={`w-5 h-5 text-[#2d9f8a] transition-transform ${
+                          openIndexes.has(i) ? "rotate-180" : ""
+                        }`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-gray-500">Срок:</span>
-                    <span className="font-semibold text-[#223042] ml-1">{inst.term_months} мес.</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Стоимость:</span>
-                    <span className="font-semibold text-[#223042] ml-1">{formatCurrency(inst.installment_price)}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Остаток:</span>
-                    <span className="font-semibold text-[#223042] ml-1">{formatCurrency(inst.remaining_amount)}</span>
+
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <span className="text-gray-500">Договор:</span>
+                      <span className="font-semibold text-[#223042] ml-1">
+                        № {inst.installment_number}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-gray-500">Срок:</span>
+                      <span className="font-semibold text-[#223042] ml-1">
+                        {inst.term_months} мес.
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-gray-500">Стоимость:</span>
+                      <span className="font-semibold text-[#223042] ml-1">
+                        {formatCurrency(inst.installment_price)}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-gray-500">Остаток:</span>
+                      <span className="font-semibold text-[#223042] ml-1">
+                        {formatCurrency(inst.remaining_amount)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Desktop Payments List */}
-            {openIndexes.has(i) && inst.payments && (
-              <div className="border-t border-gray-200">
-                <div className="hidden md:block p-6">
-                  <h5 className="font-semibold text-[#223042] mb-4">График платежей</h5>
-                  <div className="space-y-3">
-                    {inst.payments.map((payment, j) => {
-                      const today = new Date().toISOString().split("T")[0];
-                      let status = payment.is_paid
-                        ? "Оплачено"
-                        : new Date(payment.due_date) < new Date(today)
-                        ? "Просрочено"
-                        : new Date(payment.due_date).toDateString() === new Date(today).toDateString()
-                        ? "К оплате"
-                        : "Предстоящий";
-                      
-                      const displayAmount = payment.is_paid && payment.paid_amount 
-                        ? payment.paid_amount 
-                        : payment.expected_amount;
-                      
-                      return (
-                        <div key={j} className="bg-gray-50 rounded-xl p-4">
-                          <div className="flex items-center justify-between w-full text-sm">
-                            <div className="text-left">
+        {/* ===== PART 3 — вставляй следующую часть */}
+
+
+              {/* PAYMENTS LIST */}
+              {openIndexes.has(i) && inst.payments && (
+                <div className="border-t border-gray-200">
+                  
+                  {/* DESKTOP PAYMENTS */}
+                  <div className="hidden md:block p-6">
+                    <h5 className="font-semibold text-[#223042] mb-4">
+                      График платежей
+                    </h5>
+
+                    <div className="space-y-3">
+                      {inst.payments.map((payment, j) => {
+                        const today = new Date().toISOString().split("T")[0];
+
+                        let status = payment.is_paid
+                          ? "Оплачено"
+                          : new Date(payment.due_date) < new Date(today)
+                          ? "Просрочено"
+                          : new Date(payment.due_date).toDateString() ===
+                            new Date(today).toDateString()
+                          ? "К оплате"
+                          : "Предстоящий";
+
+                        const displayAmount =
+                          payment.is_paid && payment.paid_amount
+                            ? payment.paid_amount
+                            : payment.expected_amount;
+
+                        return (
+                          <div
+                            key={j}
+                            className="bg-gray-50 rounded-xl p-4"
+                          >
+                            <div className="flex items-center justify-between text-sm w-full">
+
+                              <div className="text-left">
+                                <div className="font-semibold text-[#223042]">
+                                  {getPaymentName(payment, j)}
+                                </div>
+                              </div>
+
+                              <div className="text-left">
+                                <div className="font-semibold text-[#223042]">
+                                  {formatDate(payment.due_date)}
+                                </div>
+                                <div className="text-gray-500">
+                                  Срок оплаты
+                                </div>
+                              </div>
+
+                              <div className="text-left">
+                                <div className="font-semibold text-[#223042]">
+                                  {formatCurrency(displayAmount)}
+                                </div>
+                                <div className="text-gray-500">
+                                  {payment.is_paid ? "Оплачено" : "Сумма"}
+                                </div>
+                              </div>
+
+                              <span
+                                className={`px-3 py-1.5 rounded-lg text-xs font-normal w-28 text-center ${getStatusStyle(
+                                  status
+                                )}`}
+                              >
+                                {status}
+                              </span>
+
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* MOBILE PAYMENTS */}
+                  <div className="md:hidden p-4">
+                    <h5 className="font-semibold text-[#223042] mb-4">
+                      График платежей
+                    </h5>
+
+                    <div className="space-y-3">
+                      {inst.payments.map((payment, j) => {
+                        const today = new Date().toISOString().split("T")[0];
+
+                        let status = payment.is_paid
+                          ? "Оплачено"
+                          : new Date(payment.due_date) < new Date(today)
+                          ? "Просрочено"
+                          : new Date(payment.due_date).toDateString() ===
+                            new Date(today).toDateString()
+                          ? "К оплате"
+                          : "Предстоящий";
+
+                        const displayAmount =
+                          payment.is_paid && payment.paid_amount
+                            ? payment.paid_amount
+                            : payment.expected_amount;
+
+                        return (
+                          <div
+                            key={j}
+                            className="bg-gray-50 rounded-xl p-4"
+                          >
+                            <div className="flex items-center justify-between mb-3">
                               <div className="font-semibold text-[#223042]">
                                 {getPaymentName(payment, j)}
                               </div>
-                            </div>
-                            <div className="text-left">
-                              <div className="font-semibold text-[#223042]">
-                                {formatDate(payment.due_date)}
-                              </div>
-                              <div className="text-gray-500">Срок оплаты</div>
-                            </div>
-                            <div className="text-left">
-                              <div className="font-semibold text-[#223042]">
-                                {formatCurrency(displayAmount)}
-                              </div>
-                              <div className="text-gray-500">
-                                {payment.is_paid ? "Оплачено" : "Сумма"}
-                              </div>
-                            </div>
-                            <span className={`px-3 py-1.5 rounded-lg text-xs font-normal w-28 text-center ${getStatusStyle(status)}`}>
-                              {status}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
 
-                {/* Mobile Payments List */}
-                <div className="md:hidden p-4">
-                  <h5 className="font-semibold text-[#223042] mb-4">График платежей</h5>
-                  <div className="space-y-3">
-                    {inst.payments.map((payment, j) => {
-                      const today = new Date().toISOString().split("T")[0];
-                      let status = payment.is_paid
-                        ? "Оплачено"
-                        : new Date(payment.due_date) < new Date(today)
-                        ? "Просрочено"
-                        : new Date(payment.due_date).toDateString() === new Date(today).toDateString()
-                        ? "К оплате"
-                        : "Предстоящий";
-                      
-                      const displayAmount = payment.is_paid && payment.paid_amount 
-                        ? payment.paid_amount 
-                        : payment.expected_amount;
-                      
-                      return (
-                        <div key={j} className="bg-gray-50 rounded-xl p-4">
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="font-semibold text-[#223042]">
-                              {getPaymentName(payment, j)}
+                              <span
+                                className={`px-2 py-1 rounded-lg text-xs font-normal ${getStatusStyle(
+                                  status
+                                )}`}
+                              >
+                                {status}
+                              </span>
                             </div>
-                            <span className={`px-2 py-1 rounded-lg text-xs font-normal ${getStatusStyle(status)}`}>
-                              {status}
-                            </span>
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div>
-                              <span className="text-gray-500">Срок оплаты:</span>
-                              <div className="font-semibold text-[#223042]">{formatDate(payment.due_date)}</div>
-                            </div>
-                            <div>
-                              <span className="text-gray-500">{payment.is_paid ? "Оплачено:" : "Сумма:"}</span>
-                              <div className="font-semibold text-[#223042]">{formatCurrency(displayAmount)}</div>
+
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div>
+                                <span className="text-gray-500">
+                                  Срок оплаты:
+                                </span>
+                                <div className="font-semibold text-[#223042]">
+                                  {formatDate(payment.due_date)}
+                                </div>
+                              </div>
+
+                              <div>
+                                <span className="text-gray-500">
+                                  {payment.is_paid
+                                    ? "Оплачено:"
+                                    : "Сумма:"}
+                                </span>
+                                <div className="font-semibold text-[#223042]">
+                                  {formatCurrency(displayAmount)}
+                                </div>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
+
                 </div>
-              </div>
-            )}
-          </div>
-        ))}
+              )}
+            </div>
+          ))}
+
       </div>
 
       <ContactSection />

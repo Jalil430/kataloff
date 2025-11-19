@@ -1,4 +1,10 @@
-import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
 import { sendCalc, getWhatsAppNumber } from "../lib/api.js";
 import ModalForm from "./ModalForm.jsx";
 import ContactSection from "./ContactSection.jsx";
@@ -17,10 +23,11 @@ const toNumber = (v) => {
   const n = Number(String(v).replace(/\s/g, ""));
   return Number.isFinite(n) ? n : 0;
 };
-const fmtRub = (n) =>
-  new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(
-    Number.isFinite(n) ? n : 0
-  ) + " ₽";
+const fmtRub =
+  (n) =>
+    new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(
+      Number.isFinite(n) ? n : 0
+    ) + " ₽";
 
 /** ======================= КАЛЬКУЛЯТОР ======================= */
 export default function Calculator() {
@@ -28,11 +35,26 @@ export default function Calculator() {
   const [hasGuarantor, setHasGuarantor] = useState(false);
   const [hasDown, setHasDown] = useState(false);
 
+  /* уведомление */
+  const [notify, setNotify] = useState("");
+
+  const showNotify = (msg) => {
+    setNotify(msg);
+    setTimeout(() => setNotify(""), 2600);
+  };
+
   /* динамический потолок цены */
   const maxPrice = useMemo(() => {
     if (hasGuarantor && hasDown) return 200_000;
     if (hasGuarantor) return 100_000;
     return 70_000;
+  }, [hasGuarantor, hasDown]);
+
+  /* динамический максимум срока */
+  const maxTerm = useMemo(() => {
+    if (hasGuarantor && hasDown) return 12;
+    if (hasGuarantor) return 10;
+    return 8;
   }, [hasGuarantor, hasDown]);
 
   /* стоимость */
@@ -42,7 +64,6 @@ export default function Calculator() {
   /* срок */
   const [term, setTerm] = useState(3);
   const [termInputValue, setTermInputValue] = useState("3");
-  const maxTerm = hasGuarantor ? 10 : 8;
 
   /* первый взнос */
   const [downPayment, setDownPayment] = useState(0);
@@ -63,7 +84,7 @@ export default function Calculator() {
 
   /** ===== загрузка WA ===== */
   useEffect(() => {
-    getWhatsAppNumber().then(setWa).catch(() => {});
+    getWhatsAppNumber().then(setWa).catch(() => { });
   }, []);
 
   /** ===== проценты взноса (живые) ===== */
@@ -91,16 +112,40 @@ export default function Calculator() {
     }
   }, [maxPrice, maxTerm, price, downPayment, term]);
 
-  /** ===== обработчики ===== */
+  /** ===== обработчики стоимости ===== */
   const handlePriceInput = (val) => {
-    // Only allow numbers and spaces, show "0" if empty
-    const cleanVal = val.replace(/[^0-9\s]/g, '');
-    const displayVal = cleanVal === '' ? '0' : cleanVal;
-    setPriceInputValue(displayVal);
+    const clean = val.replace(/[^0-9]/g, "");
 
-    const numericValue = toNumber(displayVal);
-    if (numericValue >= 0) {
-      setPrice(numericValue);
+    if (clean === "") {
+      setPriceInputValue("");
+      setPrice(0);
+      return;
+    }
+
+    setPriceInputValue(clean);
+    setPrice(Number(clean));
+  };
+
+  const handlePriceBlur = () => {
+    if (priceInputValue === "" || priceInputValue === "0") {
+      setPriceInputValue("0");
+      setPrice(0);
+      return;
+    }
+
+    const num = Number(priceInputValue);
+    const clamped = clamp(num, 0, maxPrice);
+    const formatted = new Intl.NumberFormat("ru-RU").format(clamped);
+
+    setPrice(clamped);
+    setPriceInputValue(formatted);
+
+    if (hasDown) {
+      const minDown = Math.round(clamped * 0.2);
+      if (downPayment < minDown) {
+        setDownPayment(minDown);
+        setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
+      }
     }
   };
 
@@ -108,8 +153,7 @@ export default function Calculator() {
     const n = Number(val);
     setPrice(n);
     setPriceInputValue(new Intl.NumberFormat("ru-RU").format(n));
-    
-    // Auto-adjust down payment to maintain minimum 20% when hasDown is true
+
     if (hasDown) {
       const minDown = Math.round(n * 0.2);
       if (downPayment < minDown) {
@@ -119,14 +163,58 @@ export default function Calculator() {
     }
   };
 
-  const updateSliderFill = (slider, value, min, max) => {
-    const percentage = ((value - min) / (max - min)) * 100;
-    slider.style.background = `linear-gradient(to right, ${LOGO_MID} 0%, ${LOGO_MID} ${percentage}%, #e5e7eb ${percentage}%, #e5e7eb 100%)`;
+  /** ===== обработчики срока ===== */
+  const handleTermInput = (val) => {
+    const clean = val.replace(/[^0-9]/g, "");
+    setTermInputValue(clean);
+
+    if (clean === "") return;
+
+    const num = Number(clean);
+
+    if (num > maxTerm) {
+      showNotify(
+        `С вашими условиями доступно максимум ${maxTerm} месяцев.\nДля увеличения срока включите поручителя / первый взнос.`
+      );
+      setTerm(maxTerm);
+      setTermInputValue(String(maxTerm));
+    } else if (num >= 3) {
+      setTerm(num);
+    }
   };
 
+  const handleTermBlur = () => {
+    if (termInputValue === "" || termInputValue === "0") {
+      setTerm(3);
+      setTermInputValue("3");
+      return;
+    }
+
+    let num = Number(termInputValue);
+
+    if (num < 3) {
+      num = 3;
+    } else if (num > maxTerm) {
+      showNotify(
+        `С вашими условиями доступно максимум ${maxTerm} месяцев.\nДля увеличения срока включите поручителя / первый взнос.`
+      );
+      num = maxTerm;
+    }
+
+    setTerm(num);
+    setTermInputValue(String(num));
+  };
+
+  const handleTermSlider = (val) => {
+    const n = Number(val);
+    setTerm(n);
+    setTermInputValue(n.toString());
+  };
+
+  /** ===== обработчики взноса ===== */
   const handleDownInput = (val) => {
-    const cleanVal = val.replace(/[^0-9\s]/g, '');
-    const displayVal = cleanVal === '' ? '0' : cleanVal;
+    const cleanVal = val.replace(/[^0-9\s]/g, "");
+    const displayVal = cleanVal === "" ? "0" : cleanVal;
     setDownInputValue(displayVal);
 
     const numericValue = toNumber(displayVal);
@@ -151,23 +239,10 @@ export default function Calculator() {
     }
   };
 
-  const handleTermInput = (val) => {
-    const cleanVal = val.replace(/[^0-9]/g, '');
-    const displayVal = cleanVal === '' ? '0' : cleanVal;
-    setTermInputValue(displayVal);
-  };
-
-  const handleTermSlider = (val) => {
-    const termValue = Number(val);
-    setTerm(termValue);
-    setTermInputValue(termValue.toString());
-  };
-
   const handleGuarantorChange = (checked) => {
     setHasGuarantor(checked);
   };
 
-  // включение/выключение первого взноса: старт 2000 ₽, минимум 3000 ₽ для ограничений
   const handleDownToggle = (checked) => {
     setHasDown(checked);
     if (!checked) {
@@ -194,15 +269,12 @@ export default function Calculator() {
         hasDown,
         downPercent,
       };
-      console.log('Sending payload:', payload); // Debug log
-      
-      // Add minimum loading time for better UX
+
       const [res] = await Promise.all([
         sendCalc(payload),
-        new Promise(resolve => setTimeout(resolve, 300)) // Minimum 300ms loading
+        new Promise((resolve) => setTimeout(resolve, 300)),
       ]);
-      
-      console.log('Received response:', res); // Debug log
+
       if (reqId === lastReqId.current) {
         setData(res);
         setLoading(false);
@@ -221,9 +293,14 @@ export default function Calculator() {
   }, [doCalc]);
 
   /** ===== инициализация слайдеров ===== */
+  const updateSliderFill = (slider, value, min, max) => {
+    const percentage = ((value - min) / (max - min)) * 100;
+    slider.style.background = `linear-gradient(to right, ${LOGO_MID} 0%, ${LOGO_MID} ${percentage}%, #e5e7eb ${percentage}%, #e5e7eb 100%)`;
+  };
+
   useEffect(() => {
-    const sliders = document.querySelectorAll('.sber-range');
-    sliders.forEach(slider => {
+    const sliders = document.querySelectorAll(".sber-range");
+    sliders.forEach((slider) => {
       const value = slider.value;
       const min = slider.min;
       const max = slider.max;
@@ -234,20 +311,15 @@ export default function Calculator() {
   /** ===== вычисления для карточки ===== */
   const monthlyOverpay = useMemo(() => {
     if (!data) return 0;
-    // Use the totalMarkup from backend and divide by term to get monthly markup
     const monthlyMarkup = Number(data.totalMarkup) / (term || 1);
-    console.log('Monthly overpay calculation:', {
-      totalMarkup: data.totalMarkup,
-      term,
-      monthlyMarkup
-    }); // Debug log
     return monthlyMarkup;
   }, [data, term]);
 
   /** ===== отправка WA ===== */
   const sendWA = () => {
     if (!data) return alert("Сначала рассчитайте рассрочку");
-    if (!clientName || !productName) return alert("Введите данные в форме заявки");
+    if (!clientName || !productName)
+      return alert("Введите данные в форме заявки");
     const msg = [
       " *Новая заявка на рассрочку*",
       ` *Имя клиента:* ${clientName}`,
@@ -260,12 +332,22 @@ export default function Calculator() {
       ` *Ежемесячный платёж:* ${fmtRub(data.monthlyPayment)}`,
       ` *Общая сумма рассрочки:* ${fmtRub(data.total)}`,
     ].join("\n");
-    window.open(`https://wa.me/${wa}?text=${encodeURIComponent(msg)}`, "_blank");
+    window.open(
+      `https://wa.me/${wa}?text=${encodeURIComponent(msg)}`,
+      "_blank"
+    );
     setModalOpen(false);
   };
 
   return (
     <div className="min-h-[calc(100vh-80px)] bg-[#f6f7fb]">
+      {/* Toast уведомление */}
+      {notify && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-[#043c6f] text-white px-6 py-3 rounded-xl shadow-lg text-center z-[9999] whitespace-pre-line">
+          {notify}
+        </div>
+      )}
+
       <style>{`
         .sber-range {
           -webkit-appearance: none;
@@ -450,22 +532,45 @@ export default function Calculator() {
       <div className="container mx-auto px-6 py-4">
         {/* заголовок */}
         <div className="mb-6">
-          <h1 className="text-3xl md:text-3xl font-semibold mb-2" style={{ color: "#223042" }}>
+          <h1
+            className="text-3xl md:text-3xl font-semibold mb-2"
+            style={{ color: "#223042" }}
+          >
             Калькулятор рассрочки
           </h1>
         </div>
 
         {/* карточка с подсказкой - только на мобильных */}
         <div className="lg:hidden mb-6">
-          <div className="rounded-2xl border p-4" style={{ backgroundColor: INFO_BLUE_BG, borderColor: INFO_BLUE }}>
+          <div
+            className="rounded-2xl border p-4"
+            style={{ backgroundColor: INFO_BLUE_BG, borderColor: INFO_BLUE }}
+          >
             <div className="flex items-start gap-3">
-              <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{ color: INFO_BLUE }}>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              <svg
+                className="w-5 h-5 mt-0.5 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+                style={{ color: INFO_BLUE }}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                />
               </svg>
-              <div className="text-sm leading-relaxed" style={{ color: INFO_BLUE }}>
+              <div
+                className="text-sm leading-relaxed"
+                style={{ color: INFO_BLUE }}
+              >
                 <p>
-                  Без поручителя — до <b>70 000 ₽</b><br />
-                  С поручителем — до <b>100 000 ₽</b><br />
+                  Без поручителя — до <b>70 000 ₽</b>
+                  <br />
+                  С поручителем — до <b>100 000 ₽</b>
+                  <br />
                   С поручителем и первым взносом — до <b>200 000 ₽</b>
                 </p>
               </div>
@@ -477,18 +582,38 @@ export default function Calculator() {
         <div className="grid grid-cols-2 gap-3 mb-8 sm:flex sm:flex-wrap">
           <button
             onClick={() => handleDownToggle(!hasDown)}
-            className={`option-button ${hasDown ? 'active' : ''}`}
+            className={`option-button ${hasDown ? "active" : ""}`}
           >
-            <span style={{ fontSize: '20px', fontWeight: '300' }}>₽</span>
+            <span style={{ fontSize: "20px", fontWeight: "300" }}>₽</span>
             Первый взнос
           </button>
           <button
             onClick={() => handleGuarantorChange(!hasGuarantor)}
-            className={`option-button ${hasGuarantor ? 'active' : ''}`}
+            className={`option-button ${hasGuarantor ? "active" : ""}`}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <circle
+                cx="12"
+                cy="7"
+                r="4"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
             Поручитель
           </button>
@@ -501,44 +626,20 @@ export default function Calculator() {
             {/* Стоимость */}
             <section>
               <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
-                <h3 className="text-lg font-semibold text-[#223042] mb-2 md:mb-0">Стоимость товара</h3>
+                <h3 className="text-lg font-semibold text-[#223042] mb-2 md:mb-0">
+                  Стоимость товара
+                </h3>
+
                 <input
                   type="text"
                   value={priceInputValue}
+                  onFocus={() => {
+                    if (priceInputValue === "0" || priceInputValue === "0 ₽") {
+                      setPriceInputValue("");
+                    }
+                  }}
                   onChange={(e) => handlePriceInput(e.target.value)}
-                  onBlur={() => {
-                    const clampedValue = clamp(toNumber(priceInputValue), 0, maxPrice);
-                    const formattedValue = new Intl.NumberFormat("ru-RU").format(clampedValue);
-                    setPriceInputValue(formattedValue);
-                    setPrice(clampedValue);
-                    
-                    // Auto-adjust down payment to maintain minimum 20% when hasDown is true
-                    if (hasDown) {
-                      const minDown = Math.round(clampedValue * 0.2);
-                      if (downPayment < minDown) {
-                        setDownPayment(minDown);
-                        setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
-                      }
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      const clampedValue = clamp(toNumber(priceInputValue), 0, maxPrice);
-                      const formattedValue = new Intl.NumberFormat("ru-RU").format(clampedValue);
-                      setPriceInputValue(formattedValue);
-                      setPrice(clampedValue);
-                      
-                      // Auto-adjust down payment to maintain minimum 20% when hasDown is true
-                      if (hasDown) {
-                        const minDown = Math.round(clampedValue * 0.2);
-                        if (downPayment < minDown) {
-                          setDownPayment(minDown);
-                          setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
-                        }
-                      }
-                      e.target.blur();
-                    }
-                  }}
+                  onBlur={handlePriceBlur}
                   className="pill-input w-full input-fixed-desktop"
                   placeholder="Введите стоимость"
                 />
@@ -556,15 +657,38 @@ export default function Calculator() {
                     handlePriceSlider(e.target.value);
                     updateSliderFill(e.target, e.target.value, 0, maxPrice);
                   }}
-
                 />
               </div>
 
               <div className="relative mx-6 overflow-visible">
                 <div className="relative w-full">
-                  <span className="absolute text-gray-500 text-sm whitespace-nowrap" style={{ left: '0%', transform: 'translateX(0%)' }}>0 ₽</span>
-                  <span className="absolute text-gray-500 text-sm whitespace-nowrap" style={{ left: '50%', transform: 'translateX(-50%)' }}>{new Intl.NumberFormat("ru-RU").format(Math.round(maxPrice * 0.5))} ₽</span>
-                  <span className="absolute text-gray-500 text-sm whitespace-nowrap" style={{ left: '100%', transform: 'translateX(-100%)' }}>{new Intl.NumberFormat("ru-RU").format(maxPrice)} ₽</span>
+                  <span
+                    className="absolute text-gray-500 text-sm whitespace-nowrap"
+                    style={{ left: "0%", transform: "translateX(0%)" }}
+                  >
+                    0 ₽
+                  </span>
+                  <span
+                    className="absolute text-gray-500 text-sm whitespace-nowrap"
+                    style={{
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                    }}
+                  >
+                    {new Intl.NumberFormat("ru-RU").format(
+                      Math.round(maxPrice * 0.5)
+                    )}{" "}
+                    ₽
+                  </span>
+                  <span
+                    className="absolute text-gray-500 text-sm whitespace-nowrap"
+                    style={{
+                      left: "100%",
+                      transform: "translateX(-100%)",
+                    }}
+                  >
+                    {new Intl.NumberFormat("ru-RU").format(maxPrice)} ₽
+                  </span>
                 </div>
               </div>
             </section>
@@ -572,26 +696,25 @@ export default function Calculator() {
             {/* Срок договора */}
             <section>
               <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
-                <h3 className="text-lg font-semibold text-[#223042] mb-2 md:mb-0">Срок рассрочки</h3>
+                <h3 className="text-lg font-semibold text-[#223042] mb-2 md:mb-0">
+                  Срок рассрочки
+                </h3>
                 <input
-                  type="number"
+                  type="text"
                   value={termInputValue}
-                  onChange={(e) => handleTermInput(e.target.value)}
-                  onBlur={() => {
-                    const clampedValue = clamp(Number(termInputValue) || 3, 3, maxTerm);
-                    setTerm(clampedValue);
-                    setTermInputValue(clampedValue.toString());
+                  onFocus={() => {
+                    if (termInputValue === "0" || termInputValue === "3") {
+                      setTermInputValue("");
+                    }
                   }}
+                  onChange={(e) => handleTermInput(e.target.value)}
+                  onBlur={handleTermBlur}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      const clampedValue = clamp(Number(termInputValue) || 3, 3, maxTerm);
-                      setTerm(clampedValue);
-                      setTermInputValue(clampedValue.toString());
+                    if (e.key === "Enter") {
+                      handleTermBlur();
                       e.target.blur();
                     }
                   }}
-                  min={3}
-                  max={maxTerm}
                   className="pill-input w-full input-fixed-desktop"
                   placeholder="Срок в месяцах"
                 />
@@ -614,74 +737,165 @@ export default function Calculator() {
 
               <div className="relative mx-6 overflow-visible">
                 <div className="relative w-full">
-                  <span className="absolute text-gray-500 text-sm whitespace-nowrap" style={{ left: '0%', transform: 'translateX(0%)' }}>3 мес.</span>
-                  <span className="absolute text-gray-500 text-sm whitespace-nowrap" style={{ left: '50%', transform: 'translateX(-50%)' }}>{Math.round(3 + (maxTerm - 3) * 0.5)} мес.</span>
-                  <span className="absolute text-gray-500 text-sm whitespace-nowrap" style={{ left: '100%', transform: 'translateX(-100%)' }}>{maxTerm} мес.</span>
+                  <span
+                    className="absolute text-gray-500 text-sm whitespace-nowrap"
+                    style={{ left: "0%", transform: "translateX(0%)" }}
+                  >
+                    3 мес.
+                  </span>
+                  <span
+                    className="absolute text-gray-500 text-sm whitespace-nowrap"
+                    style={{
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                    }}
+                  >
+                    {Math.round(3 + (maxTerm - 3) * 0.5)} мес.
+                  </span>
+                  <span
+                    className="absolute text-gray-500 text-sm whitespace-nowrap"
+                    style={{
+                      left: "100%",
+                      transform: "translateX(-100%)",
+                    }}
+                  >
+                    {maxTerm} мес.
+                  </span>
                 </div>
               </div>
             </section>
 
             {/* Первый взнос */}
-            <section className={`mb-8 ${!hasDown ? 'section-disabled' : ''}`}>
+            <section
+              className={`mb-8 ${!hasDown ? "section-disabled" : ""}`}
+            >
               <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
-                <h3 className="text-lg font-semibold text-[#223042] mb-2 md:mb-0">Первоначальный взнос</h3>
+                <h3 className="text-lg font-semibold text-[#223042] mb-2 md:mb-0">
+                  Первоначальный взнос
+                </h3>
                 <div className="flex items-center gap-3 w-full container-fixed-desktop">
                   <input
                     type="text"
                     value={hasDown ? downInputValue : "0"}
-                    onChange={hasDown ? (e) => handleDownInput(e.target.value) : undefined}
-                    onBlur={hasDown ? () => {
-                      const minDown = Math.round(price * 0.2);
-                      const clampedValue = clamp(toNumber(downInputValue), minDown, price);
-                      const formattedValue = new Intl.NumberFormat("ru-RU").format(clampedValue);
-                      setDownInputValue(formattedValue);
-                      setDownPayment(clampedValue);
-                    } : undefined}
-                    onKeyDown={hasDown ? (e) => {
-                      if (e.key === 'Enter') {
-                        const minDown = Math.round(price * 0.2);
-                        const clampedValue = clamp(toNumber(downInputValue), minDown, price);
-                        const formattedValue = new Intl.NumberFormat("ru-RU").format(clampedValue);
-                        setDownInputValue(formattedValue);
-                        setDownPayment(clampedValue);
-                        e.target.blur();
-                      }
-                    } : undefined}
+                    onChange={
+                      hasDown
+                        ? (e) => handleDownInput(e.target.value)
+                        : undefined
+                    }
+                    onBlur={
+                      hasDown
+                        ? () => {
+                          const minDown = Math.round(price * 0.2);
+                          const clampedValue = clamp(
+                            toNumber(downInputValue),
+                            minDown,
+                            price
+                          );
+                          const formattedValue =
+                            new Intl.NumberFormat("ru-RU").format(
+                              clampedValue
+                            );
+                          setDownInputValue(formattedValue);
+                          setDownPayment(clampedValue);
+                        }
+                        : undefined
+                    }
+                    onKeyDown={
+                      hasDown
+                        ? (e) => {
+                          if (e.key === "Enter") {
+                            const minDown = Math.round(price * 0.2);
+                            const clampedValue = clamp(
+                              toNumber(downInputValue),
+                              minDown,
+                              price
+                            );
+                            const formattedValue =
+                              new Intl.NumberFormat("ru-RU").format(
+                                clampedValue
+                              );
+                            setDownInputValue(formattedValue);
+                            setDownPayment(clampedValue);
+                            e.target.blur();
+                          }
+                        }
+                        : undefined
+                    }
                     className="pill-input flex-1"
-                    style={{ flexBasis: '60%' }}
+                    style={{ flexBasis: "60%" }}
                     placeholder={hasDown ? "Введите сумму" : "0 ₽"}
                     disabled={!hasDown}
                     readOnly={!hasDown}
                   />
-                  <div className="relative flex-1" style={{ flexBasis: '40%' }}>
+                  <div
+                    className="relative flex-1"
+                    style={{ flexBasis: "40%" }}
+                  >
                     <input
                       type="text"
                       value={hasDown ? downPercent : "0"}
-                      onChange={hasDown ? (e) => {
-                        const val = e.target.value.replace(/[^0-9]/g, '');
-                        handleDownPercentInput(val);
-                      } : undefined}
-                      onBlur={hasDown ? () => {
-                        const clampedPercent = clamp(Number(downPercent) || 20, 20, 100);
-                        const rubleValue = Math.round((price * clampedPercent) / 100);
-                        setDownPayment(rubleValue);
-                        setDownInputValue(new Intl.NumberFormat("ru-RU").format(rubleValue));
-                      } : undefined}
-                      onKeyDown={hasDown ? (e) => {
-                        if (e.key === 'Enter') {
-                          const clampedPercent = clamp(Number(downPercent) || 20, 20, 100);
-                          const rubleValue = Math.round((price * clampedPercent) / 100);
-                          setDownPayment(rubleValue);
-                          setDownInputValue(new Intl.NumberFormat("ru-RU").format(rubleValue));
-                          e.target.blur();
-                        }
-                      } : undefined}
+                      onChange={
+                        hasDown
+                          ? (e) => {
+                            const val = e.target.value.replace(
+                              /[^0-9]/g,
+                              ""
+                            );
+                            handleDownPercentInput(val);
+                          }
+                          : undefined
+                      }
+                      onBlur={
+                        hasDown
+                          ? () => {
+                            const clampedPercent = clamp(
+                              Number(downPercent) || 20,
+                              20,
+                              100
+                            );
+                            const rubleValue = Math.round(
+                              (price * clampedPercent) / 100
+                            );
+                            setDownPayment(rubleValue);
+                            setDownInputValue(
+                              new Intl.NumberFormat("ru-RU").format(
+                                rubleValue
+                              )
+                            );
+                          }
+                          : undefined
+                      }
+                      onKeyDown={
+                        hasDown
+                          ? (e) => {
+                            if (e.key === "Enter") {
+                              const clampedPercent = clamp(
+                                Number(downPercent) || 20,
+                                20,
+                                100
+                              );
+                              const rubleValue = Math.round(
+                                (price * clampedPercent) / 100
+                              );
+                              setDownPayment(rubleValue);
+                              setDownInputValue(
+                                new Intl.NumberFormat("ru-RU").format(
+                                  rubleValue
+                                )
+                              );
+                              e.target.blur();
+                            }
+                          }
+                          : undefined
+                      }
                       className="pill-input-percent-small w-full"
                       placeholder={hasDown ? "0" : "0"}
                       disabled={!hasDown}
                       readOnly={!hasDown}
                     />
-                    <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#223042] font-semibold pointer-events-none">%</span>
+                    <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#223042] font-semibold pointer-events-none">
+                      %
+                    </span>
                   </div>
                 </div>
               </div>
@@ -693,10 +907,23 @@ export default function Calculator() {
                   min={Math.round(price * 0.2)}
                   max={price}
                   step={500}
-                  value={hasDown ? clamp(downPayment, Math.round(price * 0.2), price) : Math.round(price * 0.2)}
+                  value={
+                    hasDown
+                      ? clamp(
+                        downPayment,
+                        Math.round(price * 0.2),
+                        price
+                      )
+                      : Math.round(price * 0.2)
+                  }
                   onChange={(e) => {
                     handleDownSlider(e.target.value);
-                    updateSliderFill(e.target, e.target.value, Math.round(price * 0.2), price);
+                    updateSliderFill(
+                      e.target,
+                      e.target.value,
+                      Math.round(price * 0.2),
+                      price
+                    );
                   }}
                   disabled={!hasDown}
                 />
@@ -704,9 +931,36 @@ export default function Calculator() {
 
               <div className="relative mx-6 overflow-visible">
                 <div className="relative w-full">
-                  <span className="absolute text-gray-500 text-sm whitespace-nowrap" style={{ left: '0%', transform: 'translateX(0%)' }}>{new Intl.NumberFormat("ru-RU").format(Math.round(price * 0.2))} ₽</span>
-                  <span className="absolute text-gray-500 text-sm whitespace-nowrap" style={{ left: '50%', transform: 'translateX(-50%)' }}>{new Intl.NumberFormat("ru-RU").format(Math.round(price * 0.6))} ₽</span>
-                  <span className="absolute text-gray-500 text-sm whitespace-nowrap" style={{ left: '100%', transform: 'translateX(-100%)' }}>{new Intl.NumberFormat("ru-RU").format(price)} ₽</span>
+                  <span
+                    className="absolute text-gray-500 text-sm whitespace-nowrap"
+                    style={{ left: "0%", transform: "translateX(0%)" }}
+                  >
+                    {new Intl.NumberFormat("ru-RU").format(
+                      Math.round(price * 0.2)
+                    )}{" "}
+                    ₽
+                  </span>
+                  <span
+                    className="absolute text-gray-500 text-sm whitespace-nowrap"
+                    style={{
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                    }}
+                  >
+                    {new Intl.NumberFormat("ru-RU").format(
+                      Math.round(price * 0.6)
+                    )}{" "}
+                    ₽
+                  </span>
+                  <span
+                    className="absolute text-gray-500 text-sm whitespace-nowrap"
+                    style={{
+                      left: "100%",
+                      transform: "translateX(-100%)",
+                    }}
+                  >
+                    {new Intl.NumberFormat("ru-RU").format(price)} ₽
+                  </span>
                 </div>
               </div>
             </section>
@@ -715,15 +969,35 @@ export default function Calculator() {
           {/* правая карточка с расчётом */}
           <aside className="lg:sticky lg:top-4 h-fit space-y-4">
             {/* карточка с подсказкой - только на десктопе */}
-            <div className="hidden lg:block rounded-2xl border p-4" style={{ backgroundColor: INFO_BLUE_BG, borderColor: INFO_BLUE }}>
+            <div
+              className="hidden lg:block rounded-2xl border p-4"
+              style={{ backgroundColor: INFO_BLUE_BG, borderColor: INFO_BLUE }}
+            >
               <div className="flex items-start gap-3">
-                <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{ color: INFO_BLUE }}>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                <svg
+                  className="w-5 h-5 mt-0.5 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                  style={{ color: INFO_BLUE }}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                  />
                 </svg>
-                <div className="text-sm leading-relaxed" style={{ color: INFO_BLUE }}>
+                <div
+                  className="text-sm leading-relaxed"
+                  style={{ color: INFO_BLUE }}
+                >
                   <p>
-                    Без поручителя — до <b>70 000 ₽</b><br />
-                    С поручителем — до <b>100 000 ₽</b><br />
+                    Без поручителя — до <b>70 000 ₽</b>
+                    <br />
+                    С поручителем — до <b>100 000 ₽</b>
+                    <br />
                     С поручителем и первым взносом — до <b>200 000 ₽</b>
                   </p>
                 </div>
@@ -731,47 +1005,79 @@ export default function Calculator() {
             </div>
 
             {/* карточка с расчётом */}
-            <div className={`relative bg-white rounded-2xl shadow-sm border border-gray-200 p-5 ${loading ? 'opacity-80' : ''}`}>
+            <div
+              className={`relative bg-white rounded-2xl shadow-sm border border-gray-200 p-5 ${loading ? "opacity-80" : ""
+                }`}
+            >
               {/* Loading Overlay */}
               {loading && (
                 <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] rounded-2xl flex items-center justify-center z-10">
                   <div className="flex items-center space-x-3">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#2d9f8a]"></div>
-                    <span className="text-gray-600 font-medium">Расчёт...</span>
+                    <span className="text-gray-600 font-medium">
+                      Расчёт...
+                    </span>
                   </div>
                 </div>
               )}
-              
-              <div className="text-gray-500 text-sm mb-2">Ежемесячный платёж:</div>
+
+              <div className="text-gray-500 text-sm mb-2">
+                Ежемесячный платёж:
+              </div>
               <div className="text-3xl lg:text-4xl font-bold mb-4 text-[#223042]">
                 {data ? fmtRub(data.monthlyPayment) : "—"}
               </div>
 
               <div className="grid grid-cols-2 gap-6 text-sm mb-6">
-                <InfoRow label="Общая сумма рассрочки:" value={data ? fmtRub(data.total) : "—"} />
-                <InfoRow label="Торговая наценка в месяц:" value={data ? fmtRub(monthlyOverpay) : "—"} />
+                <InfoRow
+                  label="Общая сумма рассрочки:"
+                  value={data ? fmtRub(data.total) : "—"}
+                />
+                <InfoRow
+                  label="Торговая наценка в месяц:"
+                  value={data ? fmtRub(monthlyOverpay) : "—"}
+                />
               </div>
 
               <button
                 onClick={() => setModalOpen(true)}
                 disabled={loading || !data}
-                className={`w-full rounded-full py-3 font-semibold transition shadow-sm mb-3 ${
-                  loading || !data 
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                    : 'text-white'
-                }`}
-                style={loading || !data ? {} : { background: `linear-gradient(135deg, ${LOGO_BLUE} 0%, ${LOGO_GREEN} 100%)` }}
-                onMouseOver={loading || !data ? undefined : (e) => (e.currentTarget.style.background = `linear-gradient(135deg, ${LOGO_BLUE_HOVER} 0%, #5BA394 100%)`)}
-                onMouseOut={loading || !data ? undefined : (e) => (e.currentTarget.style.background = `linear-gradient(135deg, ${LOGO_BLUE} 0%, ${LOGO_GREEN} 100%)`)}
+                className={`w-full rounded-full py-3 font-semibold transition shadow-sm mb-3 ${loading || !data
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "text-white"
+                  }`}
+                style={
+                  loading || !data
+                    ? {}
+                    : {
+                      background: `linear-gradient(135deg, ${LOGO_BLUE} 0%, ${LOGO_GREEN} 100%)`,
+                    }
+                }
+                onMouseOver={
+                  loading || !data
+                    ? undefined
+                    : (e) =>
+                      (e.currentTarget.style.background = `linear-gradient(135deg, ${LOGO_BLUE_HOVER} 0%, #5BA394 100%)`)
+                }
+                onMouseOut={
+                  loading || !data
+                    ? undefined
+                    : (e) =>
+                      (e.currentTarget.style.background = `linear-gradient(135deg, ${LOGO_BLUE} 0%, ${LOGO_GREEN} 100%)`)
+                }
               >
-                {loading ? 'Расчёт...' : 'Оформить рассрочку'}
+                {loading ? "Расчёт..." : "Оформить рассрочку"}
               </button>
 
               <p className="text-xs text-gray-500 leading-snug">
-                Стоимость товара и приведенные расчеты через калькулятор являются предварительными. Для точного определения условий договора, пожалуйста, обратитесь на рабочий номер.
+                Стоимость товара и приведенные расчеты через калькулятор
+                являются предварительными. Для точного определения условий
+                договора, пожалуйста, обратитесь на рабочий номер.
               </p>
 
-              {error && <p className="text-red-500 text-sm mt-3">{error}</p>}
+              {error && (
+                <p className="text-red-500 text-sm mt-3">{error}</p>
+              )}
             </div>
           </aside>
         </div>
@@ -790,7 +1096,6 @@ export default function Calculator() {
       )}
 
       <ContactSection />
-      
     </div>
   );
 }
@@ -800,7 +1105,9 @@ function InfoRow({ label, value }) {
   return (
     <div className="flex flex-col">
       <span className="text-gray-500">{label}</span>
-      <span className="font-semibold text-[#223042] text-base">{value}</span>
+      <span className="font-semibold text-[#223042] text-base">
+        {value}
+      </span>
     </div>
   );
 }
