@@ -302,7 +302,7 @@ export default function Calculator() {
         setDownInputValue(new Intl.NumberFormat("ru-RU").format(rub));
         showNotify("Минимальный первоначальный взнос — 20%");
       }
-    }, 3000);
+    }, 2000);
   };
 
   /** ===== переключатели ===== */
