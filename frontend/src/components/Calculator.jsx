@@ -19,10 +19,6 @@ const INFO_BLUE_BG = "#E3F2FD";
 
 /** ===== утилиты ===== */
 const clamp = (n, min, max) => Math.min(Math.max(n, min), max);
-const toNumber = (v) => {
-  const n = Number(String(v).replace(/\s/g, ""));
-  return Number.isFinite(n) ? n : 0;
-};
 const fmtRub =
   (n) =>
     new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(
@@ -35,7 +31,7 @@ export default function Calculator() {
   const [hasGuarantor, setHasGuarantor] = useState(false);
   const [hasDown, setHasDown] = useState(false);
 
-  /* уведомление */
+  /* уведомление (toast) */
   const [notify, setNotify] = useState("");
   const notifyTimeoutRef = useRef(null);
 
@@ -45,14 +41,6 @@ export default function Calculator() {
     // 4.6 секунды показа
     notifyTimeoutRef.current = setTimeout(() => setNotify(""), 4600);
   }, []);
-
-  /* таймер проверки взноса */
-  const downTimeoutRef = useRef(null);
-
-  const scheduleDownValidation = (callback) => {
-    if (downTimeoutRef.current) clearTimeout(downTimeoutRef.current);
-    downTimeoutRef.current = setTimeout(callback, 3000); // 3 сек после ввода
-  };
 
   /* динамический потолок цены */
   const maxPrice = useMemo(() => {
@@ -81,7 +69,7 @@ export default function Calculator() {
   const [downInputValue, setDownInputValue] = useState("0");
   const [downPercent, setDownPercent] = useState(0);
 
-  // refs для корректной работы таймера проверки
+  // refs для корректной работы с актуальными значениями
   const priceRef = useRef(price);
   const downPaymentRef = useRef(downPayment);
 
@@ -105,10 +93,9 @@ export default function Calculator() {
   const [clientName, setClientName] = useState("");
   const [productName, setProductName] = useState("");
 
-  /** ===== очистка таймеров при размонтировании ===== */
+  /** ===== очистка таймера notify при размонтировании ===== */
   useEffect(() => {
     return () => {
-      if (downTimeoutRef.current) clearTimeout(downTimeoutRef.current);
       if (notifyTimeoutRef.current) clearTimeout(notifyTimeoutRef.current);
     };
   }, []);
@@ -123,7 +110,8 @@ export default function Calculator() {
     if (!hasDown || price <= 0) {
       setDownPercent(0);
     } else {
-      setDownPercent(clamp(Math.round((downPayment / price) * 100), 0, 100));
+      const p = Math.round((downPayment / price) * 100);
+      setDownPercent(clamp(p, 0, 100));
     }
   }, [hasDown, price, downPayment]);
 
@@ -150,8 +138,7 @@ export default function Calculator() {
     if (clean === "") {
       setPriceInputValue("");
       setPrice(5000);
-      
-      // Update down payment if enabled
+
       if (hasDown) {
         const minDown = Math.round(5000 * 0.2);
         setDownPayment(minDown);
@@ -164,17 +151,14 @@ export default function Calculator() {
     setPriceInputValue(clean);
     const num = Number(clean);
     setPrice(num);
-    
-    // Auto-adjust down payment if enabled
+
     if (hasDown && num > 0) {
       const minDown = Math.round(num * 0.2);
-      // Only update if current down payment is less than new minimum
       if (downPaymentRef.current < minDown) {
         setDownPayment(minDown);
         setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
         setDownPercent(20);
       } else {
-        // Update percentage based on current down payment amount
         const newPercent = Math.round((downPaymentRef.current / num) * 100);
         setDownPercent(Math.min(newPercent, 100));
       }
@@ -185,8 +169,7 @@ export default function Calculator() {
     if (priceInputValue === "" || priceInputValue === "0") {
       setPriceInputValue("5 000");
       setPrice(5000);
-      
-      // Update down payment if enabled
+
       if (hasDown) {
         const minDown = Math.round(5000 * 0.2);
         setDownPayment(minDown);
@@ -197,8 +180,7 @@ export default function Calculator() {
     }
 
     const num = Number(priceInputValue.replace(/\s/g, ""));
-    
-    // Handle invalid numbers or ensure within bounds
+
     let clamped;
     if (isNaN(num) || num <= 0) {
       clamped = 5000;
@@ -209,22 +191,19 @@ export default function Calculator() {
     } else {
       clamped = num;
     }
-    
+
     const formatted = new Intl.NumberFormat("ru-RU").format(clamped);
 
     setPrice(clamped);
     setPriceInputValue(formatted);
 
-    // Auto-adjust down payment if enabled
     if (hasDown) {
       const minDown = Math.round(clamped * 0.2);
-      // Always ensure down payment meets minimum requirement
       if (downPaymentRef.current < minDown) {
         setDownPayment(minDown);
         setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
         setDownPercent(20);
       } else {
-        // Update percentage based on current down payment amount
         const newPercent = Math.round((downPaymentRef.current / clamped) * 100);
         setDownPercent(Math.min(newPercent, 100));
       }
@@ -236,16 +215,13 @@ export default function Calculator() {
     setPrice(n);
     setPriceInputValue(new Intl.NumberFormat("ru-RU").format(n));
 
-    // Auto-adjust down payment if enabled
     if (hasDown) {
       const minDown = Math.round(n * 0.2);
-      // Always ensure down payment meets minimum requirement
       if (downPaymentRef.current < minDown) {
         setDownPayment(minDown);
         setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
         setDownPercent(20);
       } else {
-        // Update percentage based on current down payment amount
         const newPercent = Math.round((downPaymentRef.current / n) * 100);
         setDownPercent(Math.min(newPercent, 100));
       }
@@ -258,12 +234,11 @@ export default function Calculator() {
     setTermInputValue(clean);
 
     if (clean === "") {
-      setTerm(3); // Default to minimum when empty
+      setTerm(3);
       return;
     }
 
     const num = Number(clean);
-    // Allow any value during typing, validation will catch invalid ones
     setTerm(num);
   };
 
@@ -276,7 +251,6 @@ export default function Calculator() {
 
     let num = Number(termInputValue);
 
-    // Clamp to valid range on blur
     if (isNaN(num) || num <= 0) {
       num = 3;
     } else if (num < 3) {
@@ -295,8 +269,6 @@ export default function Calculator() {
     setTermInputValue(n.toString());
   };
 
-
-
   /** ===== обработчики взноса (₽) ===== */
   const handleDownInput = (val) => {
     if (!hasDown) return;
@@ -306,10 +278,6 @@ export default function Calculator() {
 
     if (clean !== "") {
       const amount = Number(clean);
-      const minDown = Math.round(priceRef.current * 0.2);
-      const maxDown = priceRef.current;
-      
-      // Allow typing but enforce limits
       setDownPayment(amount);
     }
   };
@@ -317,7 +285,7 @@ export default function Calculator() {
   const handleDownBlur = () => {
     if (!hasDown) return;
 
-    const amount = Number(downInputValue.replace(/\s/g, ""));
+    const amount = Number(String(downInputValue).replace(/\s/g, ""));
     const minDown = Math.round(priceRef.current * 0.2);
     const maxDown = priceRef.current;
 
@@ -355,17 +323,18 @@ export default function Calculator() {
   const handleDownPercentBlur = () => {
     if (!hasDown) return;
 
-    downTimeoutRef.current = setTimeout(() => {
-      const p = Number(clean);
-      if (p < 20) {
-        const pp = 20;
-        const rub = Math.round((priceRef.current * pp) / 100);
-        setDownPercent(pp);
-        setDownPayment(rub);
-        setDownInputValue(new Intl.NumberFormat("ru-RU").format(rub));
-        showNotify("Минимальный первоначальный взнос — 20%");
-      }
-    }, 2000);
+    let p = Number(String(downPercent).replace(/[^0-9]/g, ""));
+    if (!p || p < 20) {
+      p = 20;
+      showNotify("Минимальный первоначальный взнос — 20%");
+    } else if (p > 100) {
+      p = 100;
+    }
+
+    const rub = Math.round((priceRef.current * p) / 100);
+    setDownPercent(String(p));
+    setDownPayment(rub);
+    setDownInputValue(new Intl.NumberFormat("ru-RU").format(rub));
   };
 
   /** ===== переключатели ===== */
@@ -379,7 +348,6 @@ export default function Calculator() {
       setDownPayment(0);
       setDownInputValue("0");
       setDownPercent(0);
-      if (downTimeoutRef.current) clearTimeout(downTimeoutRef.current);
     } else {
       const minDown = Math.round(priceRef.current * 0.2);
       setDownPayment(minDown);
@@ -400,7 +368,7 @@ export default function Calculator() {
         term,
         hasGuarantor,
         hasDown,
-        downPercent,
+        downPercent: Number(downPercent) || 0,
       };
 
       const [res] = await Promise.all([
@@ -441,10 +409,10 @@ export default function Calculator() {
     });
   }, [price, term, downPayment, maxPrice, maxTerm]);
 
-  /** ===== ВАЛИДАЦИЯ ВХОДНЫХ ДАННЫХ ===== */
+  /** ===== ВАЛИДАЦИЯ ВХОДНЫХ ДАННЫХ (то, что ты хочешь оставить) ===== */
   const validateInputs = () => {
     const errors = [];
-    
+
     // Проверка цены
     if (price < 5000) {
       errors.push("Минимальная стоимость товара — 5 000 ₽");
@@ -452,7 +420,7 @@ export default function Calculator() {
     if (price > maxPrice) {
       errors.push(`Максимальная стоимость товара — ${fmtRub(maxPrice)}`);
     }
-    
+
     // Проверка срока
     if (term < 3) {
       errors.push("Минимальный срок рассрочки — 3 месяца");
@@ -460,7 +428,7 @@ export default function Calculator() {
     if (term > maxTerm) {
       errors.push(`Максимальный срок рассрочки — ${maxTerm} месяцев`);
     }
-    
+
     // Проверка первого взноса (если включен)
     if (hasDown) {
       const minDown = Math.round(price * 0.2);
@@ -471,7 +439,7 @@ export default function Calculator() {
         errors.push("Первый взнос не может превышать стоимость товара");
       }
     }
-    
+
     return errors;
   };
 
@@ -511,8 +479,7 @@ export default function Calculator() {
 
   return (
     <div className="min-h-[calc(100vh-80px)] bg-[#f6f7fb]">
-
-      {/* ===== NOTIFY (общий для месяцев и взноса) ===== */}
+      {/* ===== TOAST ===== */}
       {notify && (
         <div
           className="
@@ -601,7 +568,7 @@ export default function Calculator() {
         }
         .pill-input-percent {
           background: #f4f6f8;
-          border: 1px solid #d6dbe0;
+          border: 1px солid #d6dbe0;
           border-radius: 14px;
           padding: 10px 14px;
           text-align: center;
@@ -727,40 +694,40 @@ export default function Calculator() {
 
         {/* карточка с подсказкой - только на мобильных */}
         <div className="lg:hidden mb-6">
-            <div
-              className="rounded-2xl border p-4"
-              style={{ backgroundColor: INFO_BLUE_BG, borderColor: INFO_BLUE }}
-            >
-              <div className="flex items-start gap-3">
-                <svg
-                  className="w-5 h-5 mt-0.5 flex-shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                  style={{ color: INFO_BLUE }}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-                  />
-                </svg>
-                <div
-                  className="text-sm leading-relaxed"
-                  style={{ color: INFO_BLUE }}
-                >
-                  <p>
-                    Без поручителя — до <b>70 000 ₽</b>
-                    <br />
-                    С поручителем — до <b>100 000 ₽</b>
-                    <br />
-                    С поручителем и первым взносом — до <b>200 000 ₽</b>
-                  </p>
-                </div>
+          <div
+            className="rounded-2xl border p-4"
+            style={{ backgroundColor: INFO_BLUE_BG, borderColor: INFO_BLUE }}
+          >
+            <div className="flex items-start gap-3">
+              <svg
+                className="w-5 h-5 mt-0.5 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+                style={{ color: INFO_BLUE }}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0л-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386л-.548-.547z"
+                />
+              </svg>
+              <div
+                className="text-sm leading-relaxed"
+                style={{ color: INFO_BLUE }}
+              >
+                <p>
+                  Без поручителя — до <b>70 000 ₽</b>
+                  <br />
+                  С поручителем — до <b>100 000 ₽</b>
+                  <br />
+                  С поручителем и первым взносом — до <b>200 000 ₽</b>
+                </p>
               </div>
             </div>
+          </div>
         </div>
 
         {/* селекторы опций */}
@@ -819,7 +786,11 @@ export default function Calculator() {
                   type="text"
                   value={priceInputValue}
                   onFocus={() => {
-                    if (priceInputValue === "5000" || priceInputValue === "5 000" || priceInputValue === "5 000 ₽") {
+                    if (
+                      priceInputValue === "5000" ||
+                      priceInputValue === "5 000" ||
+                      priceInputValue === "5 000 ₽"
+                    ) {
                       setPriceInputValue("");
                     }
                   }}
@@ -964,7 +935,7 @@ export default function Calculator() {
                 </h3>
 
                 <div className="flex items-center gap-3 w-full container-fixed-desktop">
-                  {/* ==== ₽ ручной ввод ==== */}
+                  {/* ₽ ручной ввод */}
                   <input
                     type="text"
                     value={hasDown ? downInputValue : "0"}
@@ -989,7 +960,7 @@ export default function Calculator() {
                     readOnly={!hasDown}
                   />
 
-                  {/* ==== % ввод ==== */}
+                  {/* % ввод */}
                   <div
                     className="relative flex-1"
                     style={{ flexBasis: "40%" }}
@@ -1021,7 +992,7 @@ export default function Calculator() {
                 </div>
               </div>
 
-              {/* ===== Слайдер ===== */}
+              {/* слайдер */}
               <div className="mb-4">
                 <input
                   className="sber-range marks-4"
@@ -1059,7 +1030,7 @@ export default function Calculator() {
                 />
               </div>
 
-              {/* ===== деления ===== */}
+              {/* деления */}
               <div className="relative mx-6 overflow-visible">
                 <div className="relative w-full">
                   <span
@@ -1113,7 +1084,7 @@ export default function Calculator() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0л-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386л-.548-.547z"
                   />
                 </svg>
                 <div
@@ -1156,9 +1127,22 @@ export default function Calculator() {
                   </div>
                   <div className="space-y-3 mb-6">
                     {inputErrors.map((error, index) => (
-                      <div key={index} className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <svg className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <div
+                        key={index}
+                        className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg"
+                      >
+                        <svg
+                          className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
                         </svg>
                         <span className="text-red-700 text-sm">{error}</span>
                       </div>
