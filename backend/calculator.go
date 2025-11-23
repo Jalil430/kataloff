@@ -22,64 +22,59 @@ type CalcResponse struct {
 	DownPayment    float64 `json:"downPayment"`    // первоначальный взнос
 }
 
-// ---------- Основная логика ----------
-func compute(req CalcRequest) (CalcResponse, error) {
-	maxPrice, maxTerm, err := limits(req.HasGuarantor, req.HasDown)
-	if err != nil {
-		return CalcResponse{}, err
-	}
-
-	if req.Price > maxPrice {
-		return CalcResponse{}, errors.New("Превышена допустимая сумма")
-	}
-	if req.Term > maxTerm {
-		return CalcResponse{}, errors.New("Превышен срок рассрочки")
-	}
-
-	tradeMarkupPercent := percentForTerm(req.Term, req.HasDown)
-
-	downPayment := 0.0
-	if req.HasDown {
-		if req.DownPercent > 0 {
-			downPayment = req.Price * (req.DownPercent / 100)
-		} else {
-			downPayment = req.Price * 0.2
-		}
-		if downPayment < req.Price*0.2 {
-			downPayment = req.Price * 0.2
-		}
-	}
-
-	// Применяем наценку к полной стоимости товара, а не только к финансируемой сумме
-	totalMarkup := req.Price * (tradeMarkupPercent / 100)
-	totalWithMarkup := req.Price + totalMarkup
-	financed := totalWithMarkup - downPayment
-
-	// ✅ Наше “умное” округление до 50₽
-	rawMonthly := financed / float64(req.Term)
-	monthlyRounded := roundTo50(rawMonthly)
-
-	totalRounded := monthlyRounded*float64(req.Term) + downPayment
-	totalMarkupRounded := totalRounded - req.Price
-
-	return CalcResponse{
-		EffectiveRate:  tradeMarkupPercent,
-		MonthlyPayment: monthlyRounded,
-		Total:          totalRounded,
-		TotalMarkup:    totalMarkupRounded,
-		DownPayment:    downPayment,
-	}, nil
-}
 
 // --- Округление вверх до ближайших 50 ₽ ---
+// --- Округление вверх до ближайших 50 ₽ ---
 func roundTo50(n float64) float64 {
-	remainder := math.Mod(n, 50)
-	if remainder > 0 {
-		return n - remainder + 50
-	}
-	return n
+    return math.Ceil(n/50) * 50
 }
 
+func compute(req CalcRequest) (CalcResponse, error) {
+    maxPrice, maxTerm, err := limits(req.HasGuarantor, req.HasDown)
+    if err != nil {
+        return CalcResponse{}, err
+    }
+
+    if req.Price > maxPrice {
+        return CalcResponse{}, errors.New("Превышена допустимая сумма")
+    }
+    if req.Term > maxTerm {
+        return CalcResponse{}, errors.New("Превышен срок рассрочки")
+    }
+
+    tradeMarkupPercent := percentForTerm(req.Term, req.HasDown)
+
+    downPayment := 0.0
+    if req.HasDown {
+        if req.DownPercent > 0 {
+            downPayment = req.Price * (req.DownPercent / 100)
+        } else {
+            downPayment = req.Price * 0.2
+        }
+        if downPayment < req.Price*0.2 {
+            downPayment = req.Price * 0.2
+        }
+    }
+
+    totalMarkup := req.Price * (tradeMarkupPercent / 100)
+    totalWithMarkup := req.Price + totalMarkup
+    financed := totalWithMarkup - downPayment
+
+    // округление
+    rawMonthly := financed / float64(req.Term)
+    monthlyRounded := roundTo50(rawMonthly)
+
+    totalRounded := monthlyRounded*float64(req.Term) + downPayment
+    totalMarkupRounded := totalRounded - req.Price
+
+    return CalcResponse{
+        EffectiveRate:  tradeMarkupPercent,
+        MonthlyPayment: monthlyRounded,
+        Total:          totalRounded,
+        TotalMarkup:    totalMarkupRounded,
+        DownPayment:    downPayment,
+    }, nil
+}
 // ---------- Лимиты ----------
 func limits(guarantor, down bool) (float64, int, error) {
 	switch {
