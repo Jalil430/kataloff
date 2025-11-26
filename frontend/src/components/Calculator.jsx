@@ -38,7 +38,6 @@ export default function Calculator() {
   const showNotify = useCallback((msg) => {
     setNotify(msg);
     if (notifyTimeoutRef.current) clearTimeout(notifyTimeoutRef.current);
-    // 4.6 секунды показа
     notifyTimeoutRef.current = setTimeout(() => setNotify(""), 4600);
   }, []);
 
@@ -69,7 +68,6 @@ export default function Calculator() {
   const [downInputValue, setDownInputValue] = useState("0");
   const [downPercent, setDownPercent] = useState(0);
 
-  // refs для корректной работы с актуальными значениями
   const priceRef = useRef(price);
   const downPaymentRef = useRef(downPayment);
 
@@ -80,7 +78,6 @@ export default function Calculator() {
   useEffect(() => {
     downPaymentRef.current = downPayment;
   }, [downPayment]);
-
   /* расчёт/WA */
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -88,34 +85,32 @@ export default function Calculator() {
   const [wa, setWa] = useState("");
   const lastReqId = useRef(0);
 
-  /* модалка «Оформить» */
+  /* модалка */
   const [modalOpen, setModalOpen] = useState(false);
   const [clientName, setClientName] = useState("");
   const [productName, setProductName] = useState("");
 
-  /** ===== очистка таймера notify при размонтировании ===== */
   useEffect(() => {
     return () => {
       if (notifyTimeoutRef.current) clearTimeout(notifyTimeoutRef.current);
     };
   }, []);
 
-  /** ===== загрузка WA ===== */
   useEffect(() => {
     getWhatsAppNumber().then(setWa).catch(() => {});
   }, []);
 
-  /** ===== проценты взноса (живые) ===== */
+  /* === проценты первого взноса === */
   useEffect(() => {
     if (!hasDown || price <= 0) {
       setDownPercent(0);
     } else {
-      const p = Math.round((downPayment / price) * 100);
+      const p = (downPayment / price) * 100; // убрано округление
       setDownPercent(clamp(p, 0, 100));
     }
   }, [hasDown, price, downPayment]);
 
-  /** ===== авто-коррекция ограничений ===== */
+  /* авто-коррекция */
   useEffect(() => {
     if (price > maxPrice) {
       setPrice(maxPrice);
@@ -127,7 +122,7 @@ export default function Calculator() {
     }
     if (term > maxTerm) {
       setTerm(maxTerm);
-      setTermInputValue(maxTerm.toString());
+      setTermInputValue(String(maxTerm));
     }
   }, [maxPrice, maxTerm, price, downPayment, term]);
 
@@ -140,7 +135,7 @@ export default function Calculator() {
       setPrice(5000);
 
       if (hasDown) {
-        const minDown = Math.round(5000 * 0.2);
+        const minDown = priceRef.current * 0.2; // убрано округление
         setDownPayment(minDown);
         setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
         setDownPercent(20);
@@ -153,25 +148,24 @@ export default function Calculator() {
     setPrice(num);
 
     if (hasDown && num > 0) {
-      const minDown = Math.round(num * 0.2);
+      const minDown = num * 0.2; // убрано округление
       if (downPaymentRef.current < minDown) {
         setDownPayment(minDown);
         setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
         setDownPercent(20);
       } else {
-        const newPercent = Math.round((downPaymentRef.current / num) * 100);
+        const newPercent = (downPaymentRef.current / num) * 100; // убрано округление
         setDownPercent(Math.min(newPercent, 100));
       }
     }
   };
-
   const handlePriceBlur = () => {
     if (priceInputValue === "" || priceInputValue === "0") {
       setPriceInputValue("5 000");
       setPrice(5000);
 
       if (hasDown) {
-        const minDown = Math.round(5000 * 0.2);
+        const minDown = 5000 * 0.2; // убрано округление
         setDownPayment(minDown);
         setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
         setDownPercent(20);
@@ -198,13 +192,13 @@ export default function Calculator() {
     setPriceInputValue(formatted);
 
     if (hasDown) {
-      const minDown = Math.round(clamped * 0.2);
+      const minDown = clamped * 0.2; // убрано округление
       if (downPaymentRef.current < minDown) {
         setDownPayment(minDown);
         setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
         setDownPercent(20);
       } else {
-        const newPercent = Math.round((downPaymentRef.current / clamped) * 100);
+        const newPercent = (downPaymentRef.current / clamped) * 100; // убрано округление
         setDownPercent(Math.min(newPercent, 100));
       }
     }
@@ -216,13 +210,13 @@ export default function Calculator() {
     setPriceInputValue(new Intl.NumberFormat("ru-RU").format(n));
 
     if (hasDown) {
-      const minDown = Math.round(n * 0.2);
+      const minDown = n * 0.2; // убрано округление
       if (downPaymentRef.current < minDown) {
         setDownPayment(minDown);
         setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
         setDownPercent(20);
       } else {
-        const newPercent = Math.round((downPaymentRef.current / n) * 100);
+        const newPercent = (downPaymentRef.current / n) * 100; // убрано округление
         setDownPercent(Math.min(newPercent, 100));
       }
     }
@@ -268,7 +262,6 @@ export default function Calculator() {
     setTerm(n);
     setTermInputValue(n.toString());
   };
-
   /** ===== обработчики взноса (₽) ===== */
   const handleDownInput = (val) => {
     if (!hasDown) return;
@@ -286,7 +279,7 @@ export default function Calculator() {
     if (!hasDown) return;
 
     const amount = Number(String(downInputValue).replace(/\s/g, ""));
-    const minDown = Math.round(priceRef.current * 0.2);
+    const minDown = priceRef.current * 0.2; // убрано округление
     const maxDown = priceRef.current;
 
     let clamped;
@@ -302,7 +295,7 @@ export default function Calculator() {
 
     setDownPayment(clamped);
     setDownInputValue(new Intl.NumberFormat("ru-RU").format(clamped));
-    setDownPercent(Math.round((clamped / priceRef.current) * 100));
+    setDownPercent((clamped / priceRef.current) * 100); // убрано округление
   };
 
   /** ===== обработчик процентов (%) ===== */
@@ -314,7 +307,7 @@ export default function Calculator() {
 
     if (clean !== "") {
       const p = Number(clean);
-      const rub = Math.round((priceRef.current * p) / 100);
+      const rub = (priceRef.current * p) / 100; // убрано округление
       setDownPayment(rub);
       setDownInputValue(new Intl.NumberFormat("ru-RU").format(rub));
     }
@@ -331,10 +324,10 @@ export default function Calculator() {
       p = 100;
     }
 
-    const rub = Math.round((priceRef.current * p) / 100);
+    const руб = (priceRef.current * p) / 100; // убрано округление
     setDownPercent(String(p));
-    setDownPayment(rub);
-    setDownInputValue(new Intl.NumberFormat("ru-RU").format(rub));
+    setDownPayment(руб);
+    setDownInputValue(new Intl.NumberFormat("ru-RU").format(руб));
   };
 
   /** ===== переключатели ===== */
@@ -349,13 +342,12 @@ export default function Calculator() {
       setDownInputValue("0");
       setDownPercent(0);
     } else {
-      const minDown = Math.round(priceRef.current * 0.2);
+      const minDown = priceRef.current * 0.2; // убрано округление
       setDownPayment(minDown);
       setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
       setDownPercent(20);
     }
   };
-
   /** ===== запрос расчёта ===== */
   const doCalc = useCallback(async () => {
     const reqId = ++lastReqId.current;
@@ -393,27 +385,10 @@ export default function Calculator() {
     doCalc();
   }, [doCalc]);
 
-  /** ===== инициализация слайдеров ===== */
-  const updateSliderFill = (slider, value, min, max) => {
-    const percentage = ((value - min) / (max - min)) * 100;
-    slider.style.background = `linear-gradient(to right, ${LOGO_MID} 0%, ${LOGO_MID} ${percentage}%, #e5e7eb ${percentage}%, #e5e7eb 100%)`;
-  };
-
-  useEffect(() => {
-    const sliders = document.querySelectorAll(".sber-range");
-    sliders.forEach((slider) => {
-      const value = slider.value;
-      const min = slider.min;
-      const max = slider.max;
-      updateSliderFill(slider, value, min, max);
-    });
-  }, [price, term, downPayment, maxPrice, maxTerm]);
-
-  /** ===== ВАЛИДАЦИЯ ВХОДНЫХ ДАННЫХ (то, что ты хочешь оставить) ===== */
+  /** ===== валидация ===== */
   const validateInputs = () => {
     const errors = [];
 
-    // Проверка цены
     if (price < 5000) {
       errors.push("Минимальная стоимость товара — 5 000 ₽");
     }
@@ -421,7 +396,6 @@ export default function Calculator() {
       errors.push(`Максимальная стоимость товара — ${fmtRub(maxPrice)}`);
     }
 
-    // Проверка срока
     if (term < 3) {
       errors.push("Минимальный срок рассрочки — 3 месяца");
     }
@@ -429,9 +403,8 @@ export default function Calculator() {
       errors.push(`Максимальный срок рассрочки — ${maxTerm} месяцев`);
     }
 
-    // Проверка первого взноса (если включен)
     if (hasDown) {
-      const minDown = Math.round(price * 0.2);
+      const minDown = price * 0.2; // убрано округление
       if (downPayment < minDown) {
         errors.push("Минимальный первый взнос — 20% от стоимости");
       }
@@ -445,37 +418,24 @@ export default function Calculator() {
 
   const inputErrors = validateInputs();
   const hasValidationErrors = inputErrors.length > 0;
-
-  /** ===== вычисления для карточки ===== */
   const monthlyOverpay = useMemo(() => {
     if (!data) return 0;
-    const monthlyMarkup = Number(data.totalMarkup) / (term || 1);
-    return monthlyMarkup;
+    return Number(data.totalMarkup) / (term || 1); // БЕЗ округления
   }, [data, term]);
 
-  /** ===== отправка WA ===== */
-  const sendWA = () => {
-    if (!data) return alert("Сначала рассчитайте рассрочку");
-    if (!clientName || !productName)
-      return alert("Введите данные в форме заявки");
-    const msg = [
-      " *Новая заявка на рассрочку*",
-      ` *Имя клиента:* ${clientName}`,
-      ` *Товар:* ${productName}`,
-      ` *Стоимость товара:* ${fmtRub(price)}`,
-      `*Первоначальный взнос:* ${hasDown ? fmtRub(downPayment) : "Нет"}`,
-      ` *Срок:* ${term} мес.`,
-      ` *Поручитель:* ${hasGuarantor ? "Есть" : "Нет"}`,
-      "",
-      ` *Ежемесячный платёж:* ${fmtRub(data.monthlyPayment)}`,
-      ` *Общая сумма рассрочки:* ${fmtRub(data.total)}`,
-    ].join("\n");
-    window.open(
-      `https://wa.me/${wa}?text=${encodeURIComponent(msg)}`,
-      "_blank"
-    );
-    setModalOpen(false);
+  const updateSliderFill = (slider, value, min, max) => {
+    const percentage = ((value - min) / (max - min)) * 100;
+    slider.style.background = `linear-gradient(to right, ${LOGO_MID} 0%, ${LOGO_MID} ${percentage}%, #e5e7eb ${percentage}%, #e5e7eb 100%)`;
   };
+
+  useEffect(() => {
+    const sliders = document.querySelectorAll(".sber-range");
+    sliders.forEach((slider) => {
+      const value = slider.value;
+      updateSliderFill(slider, value, slider.min, slider.max);
+    });
+  }, [price, term, downPayment, maxPrice, maxTerm]);
+
 
   return (
     <div className="min-h-[calc(100vh-80px)] bg-[#f6f7fb]">
