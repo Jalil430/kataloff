@@ -927,7 +927,7 @@ export default function Calculator() {
                   >
                     <input
                       type="text"
-                      value={hasDown ? downPercent : "0"}
+value={hasDown ? Math.trunc(downPercent) : "0"}
                       onFocus={() => {
                         if (!hasDown) return;
                         if (downPercent === 0) setDownPercent("");
