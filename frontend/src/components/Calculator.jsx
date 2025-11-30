@@ -120,10 +120,7 @@ export default function Calculator() {
       setDownPayment(price);
       setDownInputValue(new Intl.NumberFormat("ru-RU").format(price));
     }
-    if (term > maxTerm) {
-      setTerm(maxTerm);
-      setTermInputValue(String(maxTerm));
-    }
+
   }, [maxPrice, maxTerm, price, downPayment, term]);
 
   /** ===== обработчики стоимости ===== */
