@@ -111,17 +111,27 @@ export default function Calculator() {
   }, [hasDown, price, downPayment]);
 
   /* авто-коррекция */
-  useEffect(() => {
-    if (price > maxPrice) {
-      setPrice(maxPrice);
-      setPriceInputValue(new Intl.NumberFormat("ru-RU").format(maxPrice));
-    }
-    if (downPayment > price) {
-      setDownPayment(price);
-      setDownInputValue(new Intl.NumberFormat("ru-RU").format(price));
-    }
+/* авто-коррекция (БЕЗ сброса term, чтобы 11–12 месяцев работали) */
+useEffect(() => {
+  // Авто-коррекция стоимости
+  if (price > maxPrice) {
+    setPrice(maxPrice);
+    setPriceInputValue(
+      new Intl.NumberFormat("ru-RU").format(maxPrice)
+    );
+  }
 
-  }, [maxPrice, maxTerm, price, downPayment, term]);
+  // Авто-коррекция первого взноса
+  if (downPayment > price) {
+    setDownPayment(price);
+    setDownInputValue(
+      new Intl.NumberFormat("ru-RU").format(price)
+    );
+  }
+
+
+  
+}, [maxPrice, price, downPayment]);
 
   /** ===== обработчики стоимости ===== */
   const handlePriceInput = (val) => {
