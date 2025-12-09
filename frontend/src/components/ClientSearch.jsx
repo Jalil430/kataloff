@@ -87,7 +87,7 @@ export default function ClientSearch() {
   const capitalizeFirst = (str) =>
     str.charAt(0).toUpperCase() + str.slice(1);
 
-  const getPaymentName = (payment, index) => {
+  const getPaymentName = (payment) => {
     if (payment.payment_number === 0) return "Первый взнос";
     return `Месяц ${payment.payment_number}`;
   };
