@@ -31,16 +31,6 @@ export default function Calculator() {
   const [hasGuarantor, setHasGuarantor] = useState(false);
   const [hasDown, setHasDown] = useState(false);
 
-  /* уведомление (toast) */
-  const [notify, setNotify] = useState("");
-  const notifyTimeoutRef = useRef(null);
-
-  const showNotify = useCallback((msg) => {
-    setNotify(msg);
-    if (notifyTimeoutRef.current) clearTimeout(notifyTimeoutRef.current);
-    notifyTimeoutRef.current = setTimeout(() => setNotify(""), 4600);
-  }, []);
-
   /* динамический потолок цены */
   const maxPrice = useMemo(() => {
     if (hasGuarantor && hasDown) return 200_000;
@@ -89,12 +79,6 @@ export default function Calculator() {
   const [modalOpen, setModalOpen] = useState(false);
   const [clientName, setClientName] = useState("");
   const [productName, setProductName] = useState("");
-
-  useEffect(() => {
-    return () => {
-      if (notifyTimeoutRef.current) clearTimeout(notifyTimeoutRef.current);
-    };
-  }, []);
 
   useEffect(() => {
     getWhatsAppNumber().then(setWa).catch(() => {});
@@ -323,18 +307,13 @@ useEffect(() => {
   const handleDownPercentBlur = () => {
     if (!hasDown) return;
 
-    let p = Number(String(downPercent).replace(/[^0-9]/g, ""));
-    if (!p || p < 20) {
-      p = 20;
-      showNotify("Минимальный первоначальный взнос — 20%");
-    } else if (p > 100) {
-      p = 100;
-    }
+    const rawPercent = Number(String(downPercent).replace(/[^0-9]/g, ""));
+    const clampedPercent = clamp(Number.isFinite(rawPercent) ? rawPercent : 0, 20, 100);
+    const rub = (priceRef.current * clampedPercent) / 100;
 
-    const руб = (priceRef.current * p) / 100; // убрано округление
-    setDownPercent(String(p));
-    setDownPayment(руб);
-    setDownInputValue(new Intl.NumberFormat("ru-RU").format(руб));
+    setDownPercent(String(clampedPercent));
+    setDownPayment(rub);
+    setDownInputValue(new Intl.NumberFormat("ru-RU").format(rub));
   };
 
   /** ===== переключатели ===== */
@@ -362,7 +341,6 @@ useEffect(() => {
     setLoading(true);
     try {
       const payload = {
-        productName,
         price,
         term,
         hasGuarantor,
@@ -386,7 +364,7 @@ useEffect(() => {
         setLoading(false);
       }
     }
-  }, [productName, price, term, hasGuarantor, hasDown, downPercent]);
+  }, [price, term, hasGuarantor, hasDown, downPercent]);
 
   useEffect(() => {
     doCalc();
@@ -430,6 +408,30 @@ useEffect(() => {
     return Number(data.totalMarkup) / (term || 1); // БЕЗ округления
   }, [data, term]);
 
+  /** ===== отправка WA ===== */
+  const sendWA = () => {
+    if (!data) return alert("Сначала рассчитайте рассрочку");
+    if (!clientName || !productName)
+      return alert("Введите данные в форме заявки");
+    const msg = [
+      " *Новая заявка на рассрочку*",
+      ` *Имя клиента:* ${clientName}`,
+      ` *Товар:* ${productName}`,
+      ` *Стоимость товара:* ${fmtRub(price)}`,
+      `*Первоначальный взнос:* ${hasDown ? fmtRub(downPayment) : "Нет"}`,
+      ` *Срок:* ${term} мес.`,
+      ` *Поручитель:* ${hasGuarantor ? "Есть" : "Нет"}`,
+      "",
+      ` *Ежемесячный платёж:* ${fmtRub(data.monthlyPayment)}`,
+      ` *Общая сумма рассрочки:* ${fmtRub(data.total)}`,
+    ].join("\n");
+    window.open(
+      `https://wa.me/${wa}?text=${encodeURIComponent(msg)}`,
+      "_blank"
+    );
+    setModalOpen(false);
+  };
+
   const updateSliderFill = (slider, value, min, max) => {
     const percentage = ((value - min) / (max - min)) * 100;
     slider.style.background = `linear-gradient(to right, ${LOGO_MID} 0%, ${LOGO_MID} ${percentage}%, #e5e7eb ${percentage}%, #e5e7eb 100%)`;
@@ -446,27 +448,6 @@ useEffect(() => {
 
   return (
     <div className="min-h-[calc(100vh-80px)] bg-[#f6f7fb]">
-      {/* ===== TOAST ===== */}
-      {notify && (
-        <div
-          className="
-            fixed top-4 left-1/2 -translate-x-1/2
-            bg-white text-[#223042]
-            px-4 py-3
-            rounded-xl shadow-xl
-            font-medium text-center
-            z-[9999]
-            animate-toastIn
-            w-[90%] max-w-[360px]
-          "
-        >
-          {notify}
-          <div className="w-full h-1 bg-gray-200 rounded-full mt-3 overflow-hidden">
-            <div className="h-full bg-[#e60606] animate-toastProgress"></div>
-          </div>
-        </div>
-      )}
-
       <style>{`
         .sber-range {
           -webkit-appearance: none;

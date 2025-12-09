@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { clamp, toNumber } from "../utils.js";
+import { toNumber } from "../utils.js";
 import { updateSliderFill } from "../useSliderFill.js";
 
 export default function DownPaymentSection({

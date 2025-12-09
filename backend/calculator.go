@@ -85,8 +85,8 @@ func limits(guarantor, down bool) (float64, int, error) {
 		// С поручителем, без взноса — до 100 000 ₽ и 10 мес
 		return 100000, 10, nil
 	case guarantor && down:
-		// С поручителем и первым взносом — до 200 000 ₽ и 10 мес
-		return 200000, 10, nil
+		// С поручителем и первым взносом — до 200 000 ₽ и 12 мес
+		return 200000, 12, nil
 	default:
 		return 0, 0, errors.New("некорректное сочетание параметров")
 	}
@@ -97,15 +97,15 @@ func percentForTerm(term int, hasDown bool) float64 {
 	if term < 3 {
 		term = 3
 	}
-	if term > 10 {
-		term = 10
+	if term > 12 {
+		term = 12
 	}
 
 	withDown := map[int]float64{
 		3: 14.4, 4: 19.2, 5: 24, 6: 24, 7: 28.8, 8: 33.6, 9: 38.4, 10: 43.2, 11: 48, 12: 52.8,
 	}
 	noDown := map[int]float64{
-		3: 19.2, 4: 24, 5: 28.8, 6: 28.8, 7: 33.6, 8: 38.4, 9: 43.2, 10: 48,
+		3: 19.2, 4: 24, 5: 28.8, 6: 28.8, 7: 33.6, 8: 38.4, 9: 43.2, 10: 48, 11: 52.8, 12: 57.6,
 	}
 
 	if hasDown {
