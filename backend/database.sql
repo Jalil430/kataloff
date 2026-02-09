@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS calculations (
     product_name TEXT NOT NULL,
     price NUMERIC(12,2) NOT NULL,
     term INT NOT NULL,
-    has_guarantor BOOLEAN DEFAULT FALSE,
+    has_guarantor BOOLEAN DEFAULT TRUE,
     has_down BOOLEAN DEFAULT FALSE,
     down_percent NUMERIC(5,2) DEFAULT 0,
     markup_percent NUMERIC(5,2) DEFAULT 0,

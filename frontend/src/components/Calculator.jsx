@@ -28,22 +28,24 @@ const fmtRub =
 /** ======================= КАЛЬКУЛЯТОР ======================= */
 export default function Calculator() {
   /* переключатели */
-  const [hasGuarantor, setHasGuarantor] = useState(false);
+  // Legacy hint: previous toggleable guarantor flow was:
+  // const [hasGuarantor, setHasGuarantor] = useState(false);
+  const hasGuarantor = true;
   const [hasDown, setHasDown] = useState(false);
 
   /* динамический потолок цены */
-  const maxPrice = useMemo(() => {
-    if (hasGuarantor && hasDown) return 200_000;
-    if (hasGuarantor) return 100_000;
-    return 70_000;
-  }, [hasGuarantor, hasDown]);
+  // Legacy hint:
+  // if (hasGuarantor && hasDown) return 200_000;
+  // if (hasGuarantor) return 100_000;
+  // return 70_000;
+  const maxPrice = useMemo(() => (hasDown ? 200_000 : 70_000), [hasDown]);
 
   /* динамический максимум срока */
-  const maxTerm = useMemo(() => {
-    if (hasGuarantor && hasDown) return 12;
-    if (hasGuarantor) return 10;
-    return 8;
-  }, [hasGuarantor, hasDown]);
+  // Legacy hint:
+  // if (hasGuarantor && hasDown) return 12;
+  // if (hasGuarantor) return 10;
+  // return 8;
+  const maxTerm = useMemo(() => (hasDown ? 12 : 10), [hasDown]);
 
   /* стоимость */
   const [price, setPrice] = useState(50_000);
@@ -317,10 +319,6 @@ useEffect(() => {
   };
 
   /** ===== переключатели ===== */
-  const handleGuarantorChange = (checked) => {
-    setHasGuarantor(checked);
-  };
-
   const handleDownToggle = (checked) => {
     setHasDown(checked);
     if (!checked) {
@@ -364,7 +362,7 @@ useEffect(() => {
         setLoading(false);
       }
     }
-  }, [price, term, hasGuarantor, hasDown, downPercent]);
+  }, [price, term, hasDown, downPercent]);
 
   useEffect(() => {
     doCalc();
@@ -420,7 +418,7 @@ useEffect(() => {
       ` *Стоимость товара:* ${fmtRub(price)}`,
       `*Первоначальный взнос:* ${hasDown ? fmtRub(downPayment) : "Нет"}`,
       ` *Срок:* ${term} мес.`,
-      ` *Поручитель:* ${hasGuarantor ? "Есть" : "Нет"}`,
+      " *Поручитель:* Обязательно",
       "",
       ` *Ежемесячный платёж:* ${fmtRub(data.monthlyPayment)}`,
       ` *Общая сумма рассрочки:* ${fmtRub(data.total)}`,
@@ -667,57 +665,28 @@ useEffect(() => {
                 style={{ color: INFO_BLUE }}
               >
                 <p>
-                  Без поручителя — до <b>70 000 ₽</b>
+                  Поручитель обязателен
                   <br />
-                  С поручителем — до <b>100 000 ₽</b>
+                  Без первого взноса — до <b>70 000 ₽</b>
                   <br />
-                  С поручителем и первым взносом — до <b>200 000 ₽</b>
+                  С первым взносом — до <b>200 000 ₽</b>
                 </p>
+              </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* селекторы опций */}
-        <div className="grid grid-cols-2 gap-3 mb-8 sm:flex sm:flex-wrap">
-          <button
-            onClick={() => handleDownToggle(!hasDown)}
-            className={`option-button ${hasDown ? "active" : ""}`}
-          >
-            <span style={{ fontSize: "20px", fontWeight: "300" }}>₽</span>
-            Первый взнос
-          </button>
-          <button
-            onClick={() => handleGuarantorChange(!hasGuarantor)}
-            className={`option-button ${hasGuarantor ? "active" : ""}`}
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
+          {/* селекторы опций */}
+          <div className="mb-8">
+            {/* Legacy hint: guarantor button was intentionally removed; restore a second option-button here if needed. */}
+            <button
+              onClick={() => handleDownToggle(!hasDown)}
+              className={`option-button ${hasDown ? "active" : ""}`}
             >
-              <path
-                d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <circle
-                cx="12"
-                cy="7"
-                r="4"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            Поручитель
-          </button>
-        </div>
+              <span style={{ fontSize: "20px", fontWeight: "300" }}>₽</span>
+              Первый взнос
+            </button>
+          </div>
 
         {/* две колонки: слева контролы, справа карточка */}
         <div className="grid lg:grid-cols-[3fr_2fr] gap-6">
@@ -1040,11 +1009,11 @@ value={hasDown ? Math.trunc(downPercent) : "0"}
                   style={{ color: INFO_BLUE }}
                 >
                   <p>
-                    Без поручителя — до <b>70 000 ₽</b>
+                    Поручитель обязателен
                     <br />
-                    С поручителем — до <b>100 000 ₽</b>
+                    Без первого взноса — до <b>70 000 ₽</b>
                     <br />
-                    С поручителем и первым взносом — до <b>200 000 ₽</b>
+                    С первым взносом — до <b>200 000 ₽</b>
                   </p>
                 </div>
               </div>
