@@ -28,7 +28,10 @@ func roundTo50(n float64) float64 {
 }
 
 func compute(req CalcRequest) (CalcResponse, error) {
-	maxPrice, maxTerm := limits(req.HasDown)
+	maxPrice, maxTerm, err := limits(req.HasGuarantor, req.HasDown)
+	if err != nil {
+		return CalcResponse{}, err
+	}
 
 	if req.Price > maxPrice {
 		return CalcResponse{}, errors.New("Превышена допустимая сумма")
@@ -72,18 +75,21 @@ func compute(req CalcRequest) (CalcResponse, error) {
 }
 
 // ---------- Лимиты ----------
-func limits(down bool) (float64, int) {
-	// Legacy hint: previous guarantor-based tiers were:
-	// - no guarantor: 70_000, 8 months
-	// - guarantor + no down: 100_000, 10 months
-	// - guarantor + down: 200_000, 12 months
-	if down {
-		// С первым взносом — до 200 000 ₽ и 12 мес
-		return 200000, 12
+func limits(guarantor, down bool) (float64, int, error) {
+	switch {
+	case guarantor && down:
+		// Поручитель + первый взнос — до 200 000 ₽ и 12 мес
+		return 200000, 12, nil
+	case guarantor && !down:
+		// Только поручитель — до 70 000 ₽ и 10 мес
+		return 70000, 10, nil
+	case !guarantor && down:
+		// Без поручителя, но с первым взносом — до 70 000 ₽ и 10 мес
+		return 70000, 10, nil
+	default:
+		// Без поручителя первый взнос обязателен
+		return 0, 0, errors.New("Без поручителя требуется первый взнос")
 	}
-
-	// Без первого взноса — до 70 000 ₽ и 10 мес
-	return 70000, 10
 }
 
 // ---------- Таблица торговой наценки ----------

@@ -17,9 +17,6 @@ func calcHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Поручитель обязателен для всех расчётов.
-	req.HasGuarantor = true
-
 	resp, err := compute(req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
