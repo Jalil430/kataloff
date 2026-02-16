@@ -17,6 +17,12 @@ func calcHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Compatibility fallback for stale clients that may send both flags as false.
+	// Current UI rules do not allow this state and force one of the valid combinations.
+	if !req.HasGuarantor && !req.HasDown {
+		req.HasGuarantor = true
+	}
+
 	resp, err := compute(req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
