@@ -66,6 +66,16 @@ export default function Calculator() {
   useEffect(() => {
     downPaymentRef.current = downPayment;
   }, [downPayment]);
+
+  const applyMinimumDownPayment = useCallback((basePrice) => {
+    const minDown = basePrice * 0.2;
+    const nextDown = Math.max(downPaymentRef.current, minDown);
+
+    setHasDown(true);
+    setDownPayment(nextDown);
+    setDownInputValue(new Intl.NumberFormat("ru-RU").format(nextDown));
+    setDownPercent((nextDown / basePrice) * 100);
+  }, []);
   /* расчёт/WA */
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -114,6 +124,13 @@ useEffect(() => {
 
   
 }, [maxPrice, price, downPayment]);
+
+  // Safety guard: no-guarantor without down payment is disallowed.
+  useEffect(() => {
+    if (!hasGuarantor && !hasDown) {
+      applyMinimumDownPayment(price);
+    }
+  }, [hasGuarantor, hasDown, price, applyMinimumDownPayment]);
 
   /** ===== обработчики стоимости ===== */
   const handlePriceInput = (val) => {
@@ -319,13 +336,7 @@ useEffect(() => {
     setHasGuarantor(checked);
 
     if (!checked) {
-      const minDown = priceRef.current * 0.2;
-      const nextDown = Math.max(downPaymentRef.current, minDown);
-
-      setHasDown(true);
-      setDownPayment(nextDown);
-      setDownInputValue(new Intl.NumberFormat("ru-RU").format(nextDown));
-      setDownPercent((nextDown / priceRef.current) * 100);
+      applyMinimumDownPayment(priceRef.current);
     }
   };
 
@@ -340,14 +351,16 @@ useEffect(() => {
       setDownInputValue("0");
       setDownPercent(0);
     } else {
-      const minDown = priceRef.current * 0.2; // убрано округление
-      setDownPayment(minDown);
-      setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
-      setDownPercent(20);
+      applyMinimumDownPayment(priceRef.current);
     }
   };
   /** ===== запрос расчёта ===== */
   const doCalc = useCallback(async () => {
+    if (!hasGuarantor && !hasDown) {
+      applyMinimumDownPayment(price);
+      return;
+    }
+
     const reqId = ++lastReqId.current;
     setError("");
     setLoading(true);
@@ -376,7 +389,7 @@ useEffect(() => {
         setLoading(false);
       }
     }
-  }, [price, term, hasGuarantor, hasDown, downPercent]);
+  }, [price, term, hasGuarantor, hasDown, downPercent, applyMinimumDownPayment]);
 
   useEffect(() => {
     doCalc();
