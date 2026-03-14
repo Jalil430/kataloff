@@ -12,6 +12,7 @@ type CalcRequest struct {
 	HasGuarantor bool    `json:"hasGuarantor"`
 	HasDown      bool    `json:"hasDown"`
 	DownPercent  float64 `json:"downPercent"`
+	DownPayment  float64 `json:"downPayment"`
 }
 
 type CalcResponse struct {
@@ -41,21 +42,32 @@ func compute(req CalcRequest) (CalcResponse, error) {
 	}
 
 	tradeMarkupPercent := percentForTerm(req.Term, req.HasDown)
+	totalMarkup := req.Price * (tradeMarkupPercent / 100)
+	totalWithMarkup := req.Price + totalMarkup
 
 	downPayment := 0.0
 	if req.HasDown {
-		if req.DownPercent > 0 {
-			downPayment = req.Price * (req.DownPercent / 100)
+		minDownPayment := totalWithMarkup * 0.2
+
+		if req.DownPayment > 0 {
+			downPayment = req.DownPayment
+		} else if req.DownPercent > 0 {
+			downPayment = totalWithMarkup * (req.DownPercent / 100)
 		} else {
-			downPayment = req.Price * 0.2
+			downPayment = minDownPayment
 		}
-		if downPayment < req.Price*0.2 {
-			downPayment = req.Price * 0.2
+		if downPayment < minDownPayment {
+			downPayment = minDownPayment
+		}
+		if downPayment > totalWithMarkup {
+			downPayment = totalWithMarkup
+		}
+		downPayment = roundTo50(downPayment)
+		if downPayment > totalWithMarkup {
+			downPayment = totalWithMarkup
 		}
 	}
 
-	totalMarkup := req.Price * (tradeMarkupPercent / 100)
-	totalWithMarkup := req.Price + totalMarkup
 	financed := totalWithMarkup - downPayment
 
 	// округление
@@ -81,11 +93,11 @@ func limits(guarantor, down bool) (float64, int, error) {
 		// Поручитель + первый взнос — до 200 000 ₽ и 12 мес
 		return 200000, 12, nil
 	case guarantor && !down:
-		// Только поручитель — до 70 000 ₽ и 10 мес
-		return 70000, 10, nil
+		// Только поручитель — до 100 000 ₽ и 10 мес
+		return 100000, 10, nil
 	case !guarantor && down:
-		// Без поручителя, но с первым взносом — до 70 000 ₽ и 10 мес
-		return 70000, 10, nil
+		// Без поручителя, но с первым взносом — до 100 000 ₽ и 10 мес
+		return 100000, 10, nil
 	default:
 		// Без поручителя первый взнос обязателен
 		return 0, 0, errors.New("Без поручителя требуется первый взнос")
