@@ -19,11 +19,61 @@ const INFO_BLUE_BG = "#E3F2FD";
 
 /** ===== утилиты ===== */
 const clamp = (n, min, max) => Math.min(Math.max(n, min), max);
+const roundUpTo50 = (n) => Math.ceil(Math.max(n, 0) / 50) * 50;
+const normalizeDownPaymentAmount = (amount, max) =>
+  Math.min(roundUpTo50(amount), max);
 const fmtRub =
   (n) =>
     new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(
       Number.isFinite(n) ? n : 0
     ) + " ₽";
+const WITH_DOWN_MARKUP_BY_TERM = {
+  3: 14.4,
+  4: 19.2,
+  5: 24,
+  6: 24,
+  7: 28.8,
+  8: 33.6,
+  9: 38.4,
+  10: 43.2,
+  11: 48,
+  12: 52.8,
+};
+const WITHOUT_DOWN_MARKUP_BY_TERM = {
+  3: 19.2,
+  4: 24,
+  5: 28.8,
+  6: 28.8,
+  7: 33.6,
+  8: 38.4,
+  9: 43.2,
+  10: 48,
+  11: 52.8,
+  12: 57.6,
+};
+
+const getTradeMarkupPercent = (term, hasDown) => {
+  const normalizedTerm = Math.round(clamp(Number(term) || 3, 3, 12));
+  const markupTable = hasDown
+    ? WITH_DOWN_MARKUP_BY_TERM
+    : WITHOUT_DOWN_MARKUP_BY_TERM;
+
+  return markupTable[normalizedTerm];
+};
+
+const getInstallmentTotal = (price, term, hasDown) => {
+  const safePrice = Number.isFinite(price) ? price : 0;
+  return safePrice * (1 + getTradeMarkupPercent(term, hasDown) / 100);
+};
+
+const getDownPaymentBounds = (price, term) => {
+  const total = getInstallmentTotal(price, term, true);
+  return {
+    total,
+    min: normalizeDownPaymentAmount(total * 0.2, total),
+    max: total,
+  };
+};
 
 /** ======================= КАЛЬКУЛЯТОР ======================= */
 export default function Calculator() {
@@ -33,7 +83,7 @@ export default function Calculator() {
 
   /* динамический потолок цены */
   const maxPrice = useMemo(
-    () => (hasGuarantor && hasDown ? 200_000 : 70_000),
+    () => (hasGuarantor && hasDown ? 200_000 : 100_000),
     [hasGuarantor, hasDown]
   );
 
@@ -51,6 +101,14 @@ export default function Calculator() {
   const [term, setTerm] = useState(3);
   const [termInputValue, setTermInputValue] = useState("3");
 
+  const downPaymentBounds = useMemo(
+    () => getDownPaymentBounds(price, term),
+    [price, term]
+  );
+  const downPaymentBaseTotal = downPaymentBounds.total;
+  const minimumDownPayment = downPaymentBounds.min;
+  const maximumDownPayment = downPaymentBounds.max;
+
   /* первый взнос */
   const [downPayment, setDownPayment] = useState(0);
   const [downInputValue, setDownInputValue] = useState("0");
@@ -67,14 +125,29 @@ export default function Calculator() {
     downPaymentRef.current = downPayment;
   }, [downPayment]);
 
-  const applyMinimumDownPayment = useCallback((basePrice) => {
-    const minDown = basePrice * 0.2;
-    const nextDown = Math.max(downPaymentRef.current, minDown);
+  const syncDownPaymentToBounds = useCallback((basePrice, currentTerm) => {
+    const { min, max, total } = getDownPaymentBounds(basePrice, currentTerm);
+    const nextDown = normalizeDownPaymentAmount(
+      clamp(downPaymentRef.current, min, max),
+      max
+    );
+
+    setDownPayment(nextDown);
+    setDownInputValue(new Intl.NumberFormat("ru-RU").format(nextDown));
+    setDownPercent(total > 0 ? (nextDown / total) * 100 : 0);
+  }, []);
+
+  const applyMinimumDownPayment = useCallback((basePrice, currentTerm) => {
+    const { min, max, total } = getDownPaymentBounds(basePrice, currentTerm);
+    const nextDown = normalizeDownPaymentAmount(
+      clamp(downPaymentRef.current, min, max),
+      max
+    );
 
     setHasDown(true);
     setDownPayment(nextDown);
     setDownInputValue(new Intl.NumberFormat("ru-RU").format(nextDown));
-    setDownPercent((nextDown / basePrice) * 100);
+    setDownPercent(total > 0 ? (nextDown / total) * 100 : 0);
   }, []);
   /* расчёт/WA */
   const [data, setData] = useState(null);
@@ -97,40 +170,47 @@ export default function Calculator() {
     if (!hasDown || price <= 0) {
       setDownPercent(0);
     } else {
-      const p = (downPayment / price) * 100; // убрано округление
+      const p = (downPayment / downPaymentBaseTotal) * 100;
       setDownPercent(clamp(p, 0, 100));
     }
-  }, [hasDown, price, downPayment]);
+  }, [hasDown, price, downPayment, downPaymentBaseTotal]);
 
   /* авто-коррекция */
-/* авто-коррекция (БЕЗ сброса term, чтобы 11–12 месяцев работали) */
-useEffect(() => {
-  // Авто-коррекция стоимости
-  if (price > maxPrice) {
-    setPrice(maxPrice);
-    setPriceInputValue(
-      new Intl.NumberFormat("ru-RU").format(maxPrice)
+  /* авто-коррекция (БЕЗ сброса term, чтобы 11–12 месяцев работали) */
+  useEffect(() => {
+    if (price > maxPrice) {
+      setPrice(maxPrice);
+      setPriceInputValue(new Intl.NumberFormat("ru-RU").format(maxPrice));
+      return;
+    }
+
+    if (!hasDown) {
+      return;
+    }
+
+    const nextDown = normalizeDownPaymentAmount(
+      clamp(downPayment, minimumDownPayment, maximumDownPayment),
+      maximumDownPayment
     );
-  }
-
-  // Авто-коррекция первого взноса
-  if (downPayment > price) {
-    setDownPayment(price);
-    setDownInputValue(
-      new Intl.NumberFormat("ru-RU").format(price)
-    );
-  }
-
-
-  
-}, [maxPrice, price, downPayment]);
+    if (nextDown !== downPayment) {
+      setDownPayment(nextDown);
+      setDownInputValue(new Intl.NumberFormat("ru-RU").format(nextDown));
+    }
+  }, [
+    maxPrice,
+    price,
+    hasDown,
+    downPayment,
+    minimumDownPayment,
+    maximumDownPayment,
+  ]);
 
   // Safety guard: no-guarantor without down payment is disallowed.
   useEffect(() => {
     if (!hasGuarantor && !hasDown) {
-      applyMinimumDownPayment(price);
+      applyMinimumDownPayment(price, term);
     }
-  }, [hasGuarantor, hasDown, price, applyMinimumDownPayment]);
+  }, [hasGuarantor, hasDown, price, term, applyMinimumDownPayment]);
 
   /** ===== обработчики стоимости ===== */
   const handlePriceInput = (val) => {
@@ -141,10 +221,7 @@ useEffect(() => {
       setPrice(5000);
 
       if (hasDown) {
-        const minDown = priceRef.current * 0.2; // убрано округление
-        setDownPayment(minDown);
-        setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
-        setDownPercent(20);
+        syncDownPaymentToBounds(5000, term);
       }
       return;
     }
@@ -154,15 +231,7 @@ useEffect(() => {
     setPrice(num);
 
     if (hasDown && num > 0) {
-      const minDown = num * 0.2; // убрано округление
-      if (downPaymentRef.current < minDown) {
-        setDownPayment(minDown);
-        setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
-        setDownPercent(20);
-      } else {
-        const newPercent = (downPaymentRef.current / num) * 100; // убрано округление
-        setDownPercent(Math.min(newPercent, 100));
-      }
+      syncDownPaymentToBounds(num, term);
     }
   };
   const handlePriceBlur = () => {
@@ -171,10 +240,7 @@ useEffect(() => {
       setPrice(5000);
 
       if (hasDown) {
-        const minDown = 5000 * 0.2; // убрано округление
-        setDownPayment(minDown);
-        setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
-        setDownPercent(20);
+        syncDownPaymentToBounds(5000, term);
       }
       return;
     }
@@ -198,15 +264,7 @@ useEffect(() => {
     setPriceInputValue(formatted);
 
     if (hasDown) {
-      const minDown = clamped * 0.2; // убрано округление
-      if (downPaymentRef.current < minDown) {
-        setDownPayment(minDown);
-        setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
-        setDownPercent(20);
-      } else {
-        const newPercent = (downPaymentRef.current / clamped) * 100; // убрано округление
-        setDownPercent(Math.min(newPercent, 100));
-      }
+      syncDownPaymentToBounds(clamped, term);
     }
   };
 
@@ -216,15 +274,7 @@ useEffect(() => {
     setPriceInputValue(new Intl.NumberFormat("ru-RU").format(n));
 
     if (hasDown) {
-      const minDown = n * 0.2; // убрано округление
-      if (downPaymentRef.current < minDown) {
-        setDownPayment(minDown);
-        setDownInputValue(new Intl.NumberFormat("ru-RU").format(minDown));
-        setDownPercent(20);
-      } else {
-        const newPercent = (downPaymentRef.current / n) * 100; // убрано округление
-        setDownPercent(Math.min(newPercent, 100));
-      }
+      syncDownPaymentToBounds(n, term);
     }
   };
 
@@ -285,23 +335,23 @@ useEffect(() => {
     if (!hasDown) return;
 
     const amount = Number(String(downInputValue).replace(/\s/g, ""));
-    const minDown = priceRef.current * 0.2; // убрано округление
-    const maxDown = priceRef.current;
+    const { min, max, total } = getDownPaymentBounds(priceRef.current, term);
 
     let clamped;
     if (isNaN(amount) || amount <= 0) {
-      clamped = minDown;
-    } else if (amount < minDown) {
-      clamped = minDown;
-    } else if (amount > maxDown) {
-      clamped = maxDown;
+      clamped = min;
+    } else if (amount < min) {
+      clamped = min;
+    } else if (amount > max) {
+      clamped = max;
     } else {
       clamped = amount;
     }
+    clamped = normalizeDownPaymentAmount(clamped, max);
 
     setDownPayment(clamped);
     setDownInputValue(new Intl.NumberFormat("ru-RU").format(clamped));
-    setDownPercent((clamped / priceRef.current) * 100); // убрано округление
+    setDownPercent(total > 0 ? (clamped / total) * 100 : 0);
   };
 
   /** ===== обработчик процентов (%) ===== */
@@ -313,7 +363,7 @@ useEffect(() => {
 
     if (clean !== "") {
       const p = Number(clean);
-      const rub = (priceRef.current * p) / 100; // убрано округление
+      const rub = (downPaymentBaseTotal * p) / 100;
       setDownPayment(rub);
       setDownInputValue(new Intl.NumberFormat("ru-RU").format(rub));
     }
@@ -322,11 +372,20 @@ useEffect(() => {
   const handleDownPercentBlur = () => {
     if (!hasDown) return;
 
-    const rawPercent = Number(String(downPercent).replace(/[^0-9]/g, ""));
-    const clampedPercent = clamp(Number.isFinite(rawPercent) ? rawPercent : 0, 20, 100);
-    const rub = (priceRef.current * clampedPercent) / 100;
+    const rawPercent = Number(downPercent);
+    const clampedPercent = clamp(
+      Number.isFinite(rawPercent) ? rawPercent : 0,
+      20,
+      100
+    );
+    const rub = normalizeDownPaymentAmount(
+      (downPaymentBaseTotal * clampedPercent) / 100,
+      downPaymentBaseTotal
+    );
 
-    setDownPercent(String(clampedPercent));
+    setDownPercent(
+      downPaymentBaseTotal > 0 ? (rub / downPaymentBaseTotal) * 100 : 0
+    );
     setDownPayment(rub);
     setDownInputValue(new Intl.NumberFormat("ru-RU").format(rub));
   };
@@ -336,7 +395,7 @@ useEffect(() => {
     setHasGuarantor(checked);
 
     if (!checked) {
-      applyMinimumDownPayment(priceRef.current);
+      applyMinimumDownPayment(priceRef.current, term);
     }
   };
 
@@ -351,13 +410,13 @@ useEffect(() => {
       setDownInputValue("0");
       setDownPercent(0);
     } else {
-      applyMinimumDownPayment(priceRef.current);
+      applyMinimumDownPayment(priceRef.current, term);
     }
   };
   /** ===== запрос расчёта ===== */
   const doCalc = useCallback(async () => {
     if (!hasGuarantor && !hasDown) {
-      applyMinimumDownPayment(price);
+      applyMinimumDownPayment(price, term);
       return;
     }
 
@@ -371,6 +430,7 @@ useEffect(() => {
         hasGuarantor,
         hasDown,
         downPercent: Number(downPercent) || 0,
+        downPayment: hasDown ? downPayment : 0,
       };
 
       const [res] = await Promise.all([
@@ -389,7 +449,14 @@ useEffect(() => {
         setLoading(false);
       }
     }
-  }, [price, term, hasGuarantor, hasDown, downPercent, applyMinimumDownPayment]);
+  }, [
+    price,
+    term,
+    hasGuarantor,
+    hasDown,
+    downPercent,
+    applyMinimumDownPayment,
+  ]);
 
   useEffect(() => {
     doCalc();
@@ -418,12 +485,11 @@ useEffect(() => {
     }
 
     if (hasDown) {
-      const minDown = price * 0.2; // убрано округление
-      if (downPayment < minDown) {
-        errors.push("Минимальный первый взнос — 20% от стоимости");
+      if (downPayment < minimumDownPayment) {
+        errors.push("Минимальный первый взнос — 20% от общей суммы рассрочки");
       }
-      if (downPayment > price) {
-        errors.push("Первый взнос не может превышать стоимость товара");
+      if (downPayment > maximumDownPayment) {
+        errors.push("Первый взнос не может превышать общую сумму рассрочки");
       }
     }
 
@@ -696,11 +762,11 @@ useEffect(() => {
                 style={{ color: INFO_BLUE }}
               >
                 <p>
-                  Поручитель без взноса — до <b>70 000 ₽</b>
+                  Поручитель без взноса — до <b>100 000 ₽</b>
                   <br />
                   Поручитель + первый взнос — до <b>200 000 ₽</b>
                   <br />
-                  Без поручителя первый взнос обязателен (до <b>70 000 ₽</b>)
+                  Без поручителя первый взнос обязателен (до <b>100 000 ₽</b>)
                 </p>
               </div>
             </div>
@@ -948,10 +1014,16 @@ useEffect(() => {
                   >
                     <input
                       type="text"
-value={hasDown ? Math.trunc(downPercent) : "0"}
+                      value={
+                        hasDown
+                          ? downPercent === ""
+                            ? ""
+                            : Math.trunc(Number(downPercent) || 0)
+                          : "0"
+                      }
                       onFocus={() => {
                         if (!hasDown) return;
-                        if (downPercent === 0) setDownPercent("");
+                        if (Number(downPercent) === 0) setDownPercent("");
                       }}
                       onChange={(e) => handleDownPercentInput(e.target.value)}
                       onBlur={handleDownPercentBlur}
@@ -978,24 +1050,24 @@ value={hasDown ? Math.trunc(downPercent) : "0"}
                 <input
                   className="sber-range marks-4"
                   type="range"
-                  min={Math.round(price * 0.2)}
-                  max={price}
+                  min={minimumDownPayment}
+                  max={maximumDownPayment}
                   step={500}
                   value={
                     hasDown
-                      ? clamp(
-                          downPayment,
-                          Math.round(price * 0.2),
-                          price
-                        )
-                      : Math.round(price * 0.2)
+                      ? clamp(downPayment, minimumDownPayment, maximumDownPayment)
+                      : minimumDownPayment
                   }
                   onChange={(e) => {
                     if (!hasDown) return;
 
                     const val = Number(e.target.value);
                     setDownPayment(val);
-                    setDownPercent(Math.round((val / priceRef.current) * 100));
+                    setDownPercent(
+                      downPaymentBaseTotal > 0
+                        ? (val / downPaymentBaseTotal) * 100
+                        : 0
+                    );
                     setDownInputValue(
                       new Intl.NumberFormat("ru-RU").format(val)
                     );
@@ -1003,8 +1075,8 @@ value={hasDown ? Math.trunc(downPercent) : "0"}
                     updateSliderFill(
                       e.target,
                       val,
-                      Math.round(priceRef.current * 0.2),
-                      priceRef.current
+                      minimumDownPayment,
+                      maximumDownPayment
                     );
                   }}
                   disabled={!hasDown}
@@ -1019,7 +1091,7 @@ value={hasDown ? Math.trunc(downPercent) : "0"}
                     style={{ left: "0%", transform: "translateX(0%)" }}
                   >
                     {new Intl.NumberFormat("ru-RU").format(
-                      Math.round(price * 0.2)
+                      Math.round(minimumDownPayment)
                     )}{" "}
                     ₽
                   </span>
@@ -1029,7 +1101,7 @@ value={hasDown ? Math.trunc(downPercent) : "0"}
                     style={{ left: "50%", transform: "translateX(-50%)" }}
                   >
                     {new Intl.NumberFormat("ru-RU").format(
-                      Math.round(price * 0.6)
+                      Math.round(downPaymentBaseTotal * 0.6)
                     )}{" "}
                     ₽
                   </span>
@@ -1038,7 +1110,10 @@ value={hasDown ? Math.trunc(downPercent) : "0"}
                     className="absolute text-gray-500 text-sm whitespace-nowrap"
                     style={{ left: "100%", transform: "translateX(-100%)" }}
                   >
-                    {new Intl.NumberFormat("ru-RU").format(price)} ₽
+                    {new Intl.NumberFormat("ru-RU").format(
+                      Math.round(maximumDownPayment)
+                    )}{" "}
+                    ₽
                   </span>
                 </div>
               </div>
@@ -1073,11 +1148,11 @@ value={hasDown ? Math.trunc(downPercent) : "0"}
                   style={{ color: INFO_BLUE }}
                 >
                   <p>
-                    Поручитель без взноса — до <b>70 000 ₽</b>
+                    Поручитель без взноса — до <b>100 000 ₽</b>
                     <br />
                     Поручитель + первый взнос — до <b>200 000 ₽</b>
                     <br />
-                    Без поручителя первый взнос обязателен (до <b>70 000 ₽</b>)
+                    Без поручителя первый взнос обязателен (до <b>100 000 ₽</b>)
                   </p>
                 </div>
               </div>
