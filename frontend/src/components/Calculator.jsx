@@ -175,7 +175,6 @@ export default function Calculator() {
     }
   }, [hasDown, price, downPayment, downPaymentBaseTotal]);
 
-  /* авто-коррекция */
   /* авто-коррекция (БЕЗ сброса term, чтобы 11–12 месяцев работали) */
   useEffect(() => {
     if (price > maxPrice) {
@@ -188,22 +187,8 @@ export default function Calculator() {
       return;
     }
 
-    const nextDown = normalizeDownPaymentAmount(
-      clamp(downPayment, minimumDownPayment, maximumDownPayment),
-      maximumDownPayment
-    );
-    if (nextDown !== downPayment) {
-      setDownPayment(nextDown);
-      setDownInputValue(new Intl.NumberFormat("ru-RU").format(nextDown));
-    }
-  }, [
-    maxPrice,
-    price,
-    hasDown,
-    downPayment,
-    minimumDownPayment,
-    maximumDownPayment,
-  ]);
+    syncDownPaymentToBounds(price, term);
+  }, [maxPrice, price, term, hasDown, syncDownPaymentToBounds]);
 
   // Safety guard: no-guarantor without down payment is disallowed.
   useEffect(() => {
@@ -455,6 +440,7 @@ export default function Calculator() {
     hasGuarantor,
     hasDown,
     downPercent,
+    downPayment,
     applyMinimumDownPayment,
   ]);
 

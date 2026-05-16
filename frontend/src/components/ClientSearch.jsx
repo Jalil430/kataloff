@@ -9,8 +9,12 @@ export default function ClientSearch() {
   const [error, setError] = useState("");
   const [openIndexes, setOpenIndexes] = useState(new Set());
 
-  const API_URL = import.meta.env.VITE_API_URL;
-  const TOKEN = import.meta.env.VITE_API_TOKEN;
+  const API_URL = (
+    import.meta.env.VITE_FINPAY_API_URL ||
+    import.meta.env.VITE_API_URL ||
+    ""
+  ).replace(/\/+$/, "");
+  const TOKEN = import.meta.env.VITE_FINPAY_LOOKUP_TOKEN || "";
 
   // === НОРМАЛИЗАЦИЯ ПРОБЕЛОВ ===
   const normalizeWhitespace = (str) => {
@@ -28,6 +32,10 @@ export default function ClientSearch() {
       const fioNormalized = normalizeWhitespace(fio);
       const numberNormalized = installmentNumber.trim();
 
+      if (!API_URL || !TOKEN) {
+        throw new Error("Поиск рассрочек временно недоступен.");
+      }
+
       const url = `${API_URL}/installments/search?installment_number=${encodeURIComponent(
         numberNormalized
       )}&client_name=${encodeURIComponent(fioNormalized)}`;
@@ -40,6 +48,17 @@ export default function ClientSearch() {
       });
 
       if (!res.ok) {
+        let apiMessage = "";
+        try {
+          const body = await res.json();
+          apiMessage =
+            body?.error?.message ||
+            body?.message ||
+            (typeof body?.error === "string" ? body.error : "");
+        } catch {
+          apiMessage = "";
+        }
+
         let localizedError;
         if (res.status === 404) {
           localizedError =
@@ -56,7 +75,7 @@ export default function ClientSearch() {
             "Не удалось получить данные. Проверьте введенную информацию.";
         }
 
-        throw new Error(localizedError);
+        throw new Error(apiMessage || localizedError);
       }
 
       const json = await res.json();
