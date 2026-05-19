@@ -113,6 +113,7 @@ export default function Calculator() {
   const [downPayment, setDownPayment] = useState(0);
   const [downInputValue, setDownInputValue] = useState("0");
   const [downPercent, setDownPercent] = useState(0);
+  const [downInfoOpen, setDownInfoOpen] = useState(false);
 
   const priceRef = useRef(price);
   const downPaymentRef = useRef(downPayment);
@@ -692,7 +693,6 @@ export default function Calculator() {
         }
         .section-disabled {
           opacity: 0.5;
-          pointer-events: none;
         }
         .section-disabled .sбер-range::-webkit-slider-thumb {
           opacity: 0.5;
@@ -963,9 +963,50 @@ export default function Calculator() {
             {/* Первый взнос */}
             <section className={`mb-8 ${!hasDown ? "section-disabled" : ""}`}>
               <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
-                <h3 className="text-lg font-semibold text-[#223042] mb-2 md:mb-0">
-                  Первоначальный взнос
-                </h3>
+                <div className="relative mb-2 flex items-center gap-2 md:mb-0">
+                  <h3 className="text-lg font-semibold text-[#223042]">
+                    Первоначальный взнос
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setDownInfoOpen((isOpen) => !isOpen)}
+                    className="inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border border-[#d6dbe0] bg-white text-[#2d9f8a] transition hover:border-[#2d9f8a] focus:outline-none focus:ring-2 focus:ring-[#2d9f8a]/30"
+                    aria-label="Пояснение о первоначальном взносе"
+                    aria-expanded={downInfoOpen}
+                    aria-controls="down-payment-info"
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      aria-hidden="true"
+                    >
+                      <circle
+                        cx="12"
+                        cy="12"
+                        r="9"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      />
+                      <path
+                        d="M12 10.75V17"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                      <circle cx="12" cy="7.5" r="1.25" fill="currentColor" />
+                    </svg>
+                  </button>
+                  {downInfoOpen && (
+                    <div
+                      id="down-payment-info"
+                      className="absolute left-0 top-full z-20 mt-2 w-[min(320px,calc(100vw-3rem))] rounded-xl border border-[#b7dfd4] bg-white p-3 text-sm font-medium leading-snug text-[#223042] shadow-lg"
+                      role="status"
+                    >
+                      Чем выше первоначальный взнос, тем ниже торговая наценка.
+                    </div>
+                  )}
+                </div>
 
                 <div className="flex items-center gap-3 w-full container-fixed-desktop">
                   {/* ₽ ручной ввод */}
