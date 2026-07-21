@@ -12,7 +12,7 @@ export default function Header() {
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
             <img
-              src="/LOGO PNG.png"
+              src={`${import.meta.env.BASE_URL}LOGO PNG.png`}
               alt="Kataloff Islamic Finance"
               className="h-8 lg:h-12 w-auto"
             />
